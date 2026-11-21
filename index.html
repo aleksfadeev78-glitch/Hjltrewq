@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A100D">
+<meta name="description" content="Шагомер — шаги по личному темпу и независимый счёт по акселерометру с живым графиком сигнала.">
+<title>Шагомер — темп + датчик движения</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F2E1D'/%3E%3Cpath d='M17.6 5.2c3 .6 4.8 3.4 4.4 6.8-.3 3-1.9 5-4.5 4.7-2.6-.3-4.1-2.7-3.9-5.7.2-3.4 1.6-6.3 4-5.8Z' fill='%23B7F04A'/%3E%3Cellipse cx='17.2' cy='23.4' rx='3' ry='3.3' fill='%23B7F04A'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A100D; --surface:#122019; --surface2:#16281F; --inset:#0D1912; --scrim:rgba(4,8,6,.72);
+  --line:#23392C; --line2:#2E4A38;
+  --lime:#B7F04A; --lime-hi:#D6F86B; --lime-lo:#8FD62F; --pine:#1C4630;
+  --cyan:#3FE0C8; --cyan-hi:#7FF0DE; --blue:#4EA8FF; --amber:#FFB020; --amber-hi:#FFC95E;
+  --coral:#FF5C4D; --coral-lo:#C22A18; --violet:#A78BFA; --magenta:#F06AD8;
+  --text:#EDF4E6; --muted:#9AB0A0; --dim:#7D9384;
+  --ok:#7BE06A; --warn:#FFB020; --danger:#FF5C4D; --info:#3FE0C8;
+  --disp:'Unbounded','Manrope',system-ui,sans-serif;
+  --body:'Manrope',system-ui,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'Consolas',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font:15px/1.5 var(--body);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(1200px 700px at 80% -10%,#0E1B14 0%,transparent 60%),var(--bg)}
+.glow{position:absolute;border-radius:50%;filter:blur(10px);will-change:transform}
+.g1{width:640px;height:640px;left:-180px;top:-220px;background:radial-gradient(circle,rgba(183,240,74,.15) 0%,transparent 62%);animation:dr1 26s ease-in-out infinite alternate}
+.g2{width:720px;height:720px;right:-260px;top:6%;background:radial-gradient(circle,rgba(63,224,200,.12) 0%,transparent 62%);animation:dr2 32s ease-in-out infinite alternate}
+.g3{width:600px;height:600px;left:24%;bottom:-320px;background:radial-gradient(circle,rgba(167,139,250,.1) 0%,transparent 62%);animation:dr1 38s ease-in-out infinite alternate-reverse}
+@keyframes dr1{to{transform:translate(70px,50px)}}
+@keyframes dr2{to{transform:translate(-60px,70px)}}
+.lanes{position:absolute;inset:0;background:repeating-linear-gradient(115deg,transparent 0 46px,rgba(183,240,74,.03) 46px 48px);
+  -webkit-mask-image:radial-gradient(900px 600px at 30% 0%,#000 0%,transparent 75%);mask-image:radial-gradient(900px 600px at 30% 0%,#000 0%,transparent 75%)}
+.grain{position:absolute;inset:0;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");background-size:160px}
+*{scrollbar-width:thin;scrollbar-color:#3E6B4A #0C1510}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#0C1510;border-radius:8px}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--lime-lo),#2E7D5B);border-radius:8px;border:2px solid #0C1510}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,var(--lime),var(--cyan))}
+.topbar{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);background:rgba(10,16,13,.8);border-bottom:1px solid var(--line);animation:fadeDown .6s cubic-bezier(.2,.7,.3,1) backwards}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-14px)}}
+.topbar-in{max-width:1240px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:14px}
+.logo{display:flex;align-items:center;gap:11px;min-width:0}
+.logo-box{width:40px;height:40px;flex:none;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#1E4A31,#0F2E1D);border:1px solid var(--line2);box-shadow:0 4px 18px rgba(183,240,74,.14)}
+.logo-box svg{width:24px;height:24px;color:var(--lime)}
+.wordmark{font:900 17px var(--disp);letter-spacing:.07em}
+.tagline{font-size:11.5px;color:var(--dim);margin-top:1px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.chip-status{display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:99px;border:1px solid var(--line2);background:var(--inset);font:12px var(--mono);color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#4A6355;flex:none;transition:background .3s}
+.dot.run{background:var(--lime);box-shadow:0 0 10px rgba(183,240,74,.8);animation:blink 1.1s infinite}
+.dot.pause{background:var(--amber)} .dot.done{background:var(--cyan)}
+@keyframes blink{50%{opacity:.35}}
+.btn-sound{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:99px;cursor:pointer;border:1px solid var(--line2);background:var(--inset);color:var(--muted);font:600 12.5px var(--body);transition:.2s}
+.btn-sound svg{width:17px;height:17px}
+.btn-sound[aria-pressed="true"]{color:var(--lime);border-color:rgba(183,240,74,.4)}
+main{max-width:1240px;margin:0 auto;padding:22px 22px 8px}
+.card{background:linear-gradient(170deg,var(--surface),#0F1B14);border:1px solid var(--line);border-radius:20px;padding:20px;position:relative;animation:rise .7s cubic-bezier(.2,.7,.3,1) backwards}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}}
+.stage{border-radius:24px;border-color:var(--line2);padding:24px 26px 18px;overflow:hidden;background:linear-gradient(160deg,#13291D,#0F1E16 55%,#10231B);animation-delay:.05s}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(520px 320px at 12% 0%,rgba(183,240,74,.12),transparent 65%),radial-gradient(460px 300px at 95% 30%,rgba(63,224,200,.09),transparent 65%)}
+.stage>*{position:relative}
+.grid3{display:grid;grid-template-columns:1fr 1.15fr 1.1fr;gap:18px;margin-top:18px}
+.grid3 .card:nth-child(1){animation-delay:.15s}.grid3 .card:nth-child(2){animation-delay:.25s}.grid3 .card:nth-child(3){animation-delay:.35s}
+.card-h{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.card-h svg{width:17px;height:17px;color:var(--lime);flex:none}
+.card-h h2{font:700 12.5px var(--disp);letter-spacing:.09em;text-transform:uppercase}
+.card-h .spacer{margin-left:auto}
+.tabs{display:inline-flex;gap:4px;padding:4px;border-radius:14px;background:#0C1611;border:1px solid var(--line)}
+.tabs.busy{opacity:.55}
+.tab{display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:10px;border:0;cursor:pointer;background:transparent;color:var(--muted);font:700 13.5px var(--body);transition:.2s}
+.tab .num{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:1.5px solid currentColor;font:700 11px var(--mono)}
+.tab.active{background:linear-gradient(135deg,var(--lime-hi),var(--lime-lo));color:#0B1210;box-shadow:0 4px 16px rgba(183,240,74,.25)}
+.tab .lockico{width:13px;height:13px;color:var(--amber)} .tab.active .lockico{color:#0B1210}
+.tabs.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}}
+.phase-hint{margin:13px 2px 4px;font-size:13.5px;color:var(--muted);min-height:20px}
+.phase-hint b{color:var(--lime)}
+.stage-grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:32px;align-items:center;margin-top:10px}
+.dial-wrap{position:relative;width:min(340px,82vw);aspect-ratio:1;margin:0 auto}
+.dial-wrap svg{width:100%;height:100%;display:block;transition:filter .35s}
+.dial-wrap.paused svg{filter:saturate(.5) brightness(.82)}
+.dial-wrap.pulse svg{filter:drop-shadow(0 0 20px rgba(183,240,74,.55))}
+.dial-wrap.goal-flash svg{filter:drop-shadow(0 0 26px rgba(63,224,200,.7))}
+.dial-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;padding:0 44px}
+.dial-btn{width:88px;height:88px;border-radius:50%;border:0;cursor:pointer;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:800 9.5px var(--body);letter-spacing:.04em;text-transform:uppercase;transition:transform .15s,filter .2s;margin-bottom:4px}
+.dial-btn svg{width:27px;height:27px}
+.dial-btn:hover{transform:scale(1.05)} .dial-btn:active{transform:scale(.93)}
+.dial-btn:focus-visible{outline:3px solid var(--text);outline-offset:3px}
+.dial-btn.go{background:radial-gradient(circle at 32% 28%,var(--lime-hi),var(--lime-lo));color:#0B1210;box-shadow:0 0 0 6px rgba(183,240,74,.12),0 8px 30px rgba(183,240,74,.4)}
+.dial-btn.stop{background:radial-gradient(circle at 32% 28%,var(--amber-hi),#F09A0C);color:#241503;box-shadow:0 0 0 6px rgba(255,176,32,.14),0 8px 30px rgba(255,176,32,.42)}
+.dial-btn.lock{background:var(--surface2);border:1px solid var(--line2);color:var(--amber)}
+.d-time-row{display:flex;align-items:baseline}
+.d-time{font:800 clamp(36px,9.4vw,48px)/1 var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.d-time.long{font-size:clamp(27px,7vw,36px)}
+.d-tenth{font:700 18px var(--mono);color:var(--lime);width:2ch;text-align:left;opacity:.25}
+.dial-wrap.is-run .d-tenth{opacity:1}
+.d-label{font:700 10.5px var(--disp);letter-spacing:.16em;color:var(--lime);text-transform:uppercase;margin-top:3px}
+.dial-wrap.paused .d-label{color:var(--amber)}
+.d-sub{font:12px var(--mono);color:var(--dim)}
+#goalArc{transition:stroke-dashoffset .25s linear,opacity .3s}
+#goalArc.complete{filter:drop-shadow(0 0 8px rgba(183,240,74,.9))}
+.dial-wrap.is-cal #goalArc{opacity:0}.dial-wrap.is-cal #goalTrack{opacity:.3}
+.burst-layer{position:absolute;inset:0;pointer-events:none}
+.spark{position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:2px;transform:translate(-50%,-50%)}
+.panel{min-height:330px;display:flex;flex-direction:column;gap:14px;justify-content:center}
+.p-head{display:flex;gap:13px;align-items:flex-start}
+.p-ico{width:44px;height:44px;flex:none;border-radius:13px;display:grid;place-items:center;background:rgba(183,240,74,.1);border:1px solid rgba(183,240,74,.28);color:var(--lime)}
+.p-ico svg{width:22px;height:22px}
+.p-ico.warn{background:rgba(255,176,32,.1);border-color:rgba(255,176,32,.35);color:var(--amber)}
+.p-ico.ok{background:rgba(123,224,106,.12);border-color:rgba(123,224,106,.4);color:var(--ok)}
+.p-head h3{font:700 17px var(--disp)}
+.p-head p{font-size:13px;color:var(--muted);margin-top:3px}
+.steps-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+.steps-list li{display:flex;gap:11px;align-items:center;padding:10px 13px;border-radius:12px;border:1px solid var(--line);background:var(--inset);font-size:13.5px;color:var(--muted)}
+.steps-list li b{width:23px;height:23px;flex:none;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--dim);font:700 12px var(--mono);color:var(--dim)}
+.steps-list li.on{border-color:rgba(183,240,74,.45);background:rgba(183,240,74,.07);color:var(--text)}
+.steps-list li.on b{background:var(--lime);border-color:var(--lime);color:#0B1210}
+.steps-list li.done{color:var(--dim)} .steps-list li.done b{border-color:var(--ok);color:var(--ok)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border-radius:13px;cursor:pointer;border:1px solid transparent;padding:12px 18px;font:700 14.5px var(--body);color:var(--text);transition:transform .15s,filter .2s,background .2s,border-color .2s}
+.btn svg{width:17px;height:17px;flex:none}
+.btn:active{transform:translateY(1px) scale(.985)}
+.btn:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--lime-hi),var(--lime-lo));color:#0B1210;box-shadow:0 6px 24px rgba(183,240,74,.28)}
+.btn-primary:hover{filter:brightness(1.07);transform:translateY(-1px)}
+.btn-xl{width:100%;padding:16px 22px;font-size:16px;border-radius:15px}
+.btn-stop{background:linear-gradient(135deg,#E0402C,var(--coral-lo));color:#FFF6F4;box-shadow:0 6px 22px rgba(255,92,77,.25)}
+.btn-stop:hover{filter:brightness(1.1)}
+.btn-ghost{background:var(--surface2);border-color:var(--line2)}
+.btn-ghost:hover{border-color:rgba(183,240,74,.5)}
+.btn-cy{background:rgba(63,224,200,.1);border-color:rgba(63,224,200,.5);color:var(--cyan)}
+.btn-cy:hover{background:rgba(63,224,200,.18)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}.btn-row .btn{flex:1;min-width:135px}
+.btn-text{background:none;border:0;cursor:pointer;color:var(--dim);font:600 12.5px var(--body);padding:6px 4px;text-decoration:underline;text-underline-offset:3px;align-self:center}
+.btn-text:hover{color:var(--coral)}
+.p-note{font-size:12px;color:var(--dim)} .p-note.warn{color:var(--amber)}
+.p-note kbd{font:700 10.5px var(--mono);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--inset);color:var(--muted)}
+.mini-chips{display:flex;gap:8px;flex-wrap:wrap}
+.mini-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:var(--inset);border:1px solid var(--line2);font:600 12px var(--mono);color:var(--muted)}
+.mini-chip svg{width:13px;height:13px;color:var(--cyan)} .mini-chip b{color:var(--lime)}
+.mini-chip.cy{border-color:rgba(63,224,200,.35)}
+.saved-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;background:rgba(123,224,106,.1);border:1px solid rgba(123,224,106,.35);color:var(--ok);font:700 11.5px var(--body);align-self:flex-start}
+.saved-chip svg{width:13px;height:13px}
+.goal-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:11px;background:linear-gradient(135deg,rgba(183,240,74,.16),rgba(63,224,200,.12));border:1px solid rgba(183,240,74,.45);color:var(--lime-hi);font:700 13px var(--body);align-self:flex-start}
+.goal-chip svg{width:15px;height:15px}
+.m-duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric{background:var(--inset);border:1px solid var(--line);border-radius:14px;padding:11px 14px;position:relative;min-width:0}
+.metric .lbl{font:700 10px var(--body);letter-spacing:.11em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:6px}
+.metric .lbl svg{width:12px;height:12px;color:var(--lime);flex:none}
+.metric .val{font:700 20px var(--mono);margin-top:3px;font-variant-numeric:tabular-nums}
+.metric.duo-m .val{font-size:clamp(23px,6vw,33px);color:var(--lime);line-height:1.15;text-shadow:0 0 22px rgba(183,240,74,.25)}
+.metric.acc{border-color:rgba(63,224,200,.35);background:linear-gradient(170deg,rgba(63,224,200,.05),var(--inset) 60%)}
+.metric.acc .lbl svg{color:var(--cyan)}
+.metric.acc.duo-m .val{color:var(--cyan);text-shadow:0 0 22px rgba(63,224,200,.25)}
+.val.bump{animation:bump .18s ease-out}
+@keyframes bump{40%{transform:scale(1.07)}}
+.acc-note{display:flex;align-items:center;gap:6px;font:600 10.5px var(--body);color:var(--dim);margin-top:5px;flex-wrap:wrap}
+.acc-dot{width:7px;height:7px;border-radius:50%;background:#4A6355;flex:none}
+.acc-dot.active{background:var(--cyan);box-shadow:0 0 8px rgba(63,224,200,.8);animation:blink 1s infinite}
+.acc-dot.waiting,.acc-dot.nosignal,.acc-dot.needed,.acc-dot.paused{background:var(--amber)}
+.acc-dot.denied{background:var(--coral)}
+.perm-btn{padding:3px 10px;border-radius:99px;border:1px solid rgba(63,224,200,.5);cursor:pointer;background:rgba(63,224,200,.1);color:var(--cyan);font:700 10.5px var(--body)}
+.perm-btn:hover{background:rgba(63,224,200,.2)}
+.wave{width:100%;height:64px;display:block;border-radius:9px;background:#0A1410;border:1px solid #1B2C22;margin-top:8px}
+.diag{font:600 10px var(--mono);color:var(--dim);margin-top:5px;letter-spacing:.02em}
+.diag b{color:var(--cyan-hi)}
+.m-small-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.m-small-row .val{font-size:clamp(15px,2vw,20px)}
+.float-num{position:absolute;right:14px;top:12px;font:800 14px var(--mono);color:var(--lime-hi);pointer-events:none}
+.pause-note{display:flex;align-items:center;gap:8px;font:600 12.5px var(--body);color:var(--amber);background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.3);border-radius:11px;padding:9px 13px}
+.pause-note svg{width:15px;height:15px;flex:none}
+.recap{display:inline-flex;align-items:center;gap:8px;font:700 13px var(--mono);color:var(--cyan);background:rgba(63,224,200,.08);border:1px solid rgba(63,224,200,.3);border-radius:10px;padding:8px 13px;align-self:flex-start}
+.recap svg{width:15px;height:15px}
+.cal-label{font:700 14.5px var(--body)}
+.cal-input-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stepper-btn{width:44px;height:52px;flex:none;border-radius:12px;border:1px solid var(--line2);cursor:pointer;background:var(--surface2);color:var(--lime);font:800 22px var(--mono)}
+.stepper-btn:hover{border-color:rgba(183,240,74,.55)}
+#calSteps{width:140px;height:52px;text-align:center;border-radius:12px;border:1px solid var(--line2);background:var(--inset);color:var(--text);font:800 28px var(--mono);-moz-appearance:textfield}
+#calSteps::-webkit-outer-spin-button,#calSteps::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+#calSteps:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 3px rgba(183,240,74,.15)}
+#calSteps.shake{animation:shake .4s;border-color:var(--coral)}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap}
+.chip-btn{padding:7px 15px;border-radius:99px;border:1px solid var(--line2);background:var(--inset);color:var(--muted);font:700 13px var(--mono);cursor:pointer}
+.chip-btn:hover{border-color:var(--lime);color:var(--lime)}
+.cal-prev{font:600 13.5px var(--mono);color:var(--cyan);min-height:20px}.cal-prev.warn{color:var(--amber)}
+.cal-err{font:600 12.5px var(--body);color:var(--coral)}
+.acc-hint{display:flex;align-items:center;gap:9px;font:600 12.5px var(--body);color:var(--cyan);background:rgba(63,224,200,.07);border:1px solid rgba(63,224,200,.3);border-radius:11px;padding:9px 12px;flex-wrap:wrap}
+.acc-hint svg{width:15px;height:15px;flex:none}.acc-hint b{font-family:var(--mono);color:var(--cyan-hi)}
+.acc-hint .perm-btn{margin-left:auto}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.duo-cell{min-width:0;padding:12px 14px;border-radius:15px;border:1px solid var(--line);background:var(--inset)}
+.duo-cell.acc{border-color:rgba(63,224,200,.35);background:linear-gradient(170deg,rgba(63,224,200,.06),var(--inset) 65%)}
+.duo-cap{font:700 9.5px var(--body);letter-spacing:.13em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:6px}
+.duo-cap svg{width:12px;height:12px;color:var(--lime)} .duo-cell.acc .duo-cap svg{color:var(--cyan)}
+.duo-num{font:800 clamp(29px,8vw,48px)/1.05 var(--mono);color:var(--lime);text-shadow:0 0 30px rgba(183,240,74,.35);font-variant-numeric:tabular-nums;margin-top:4px}
+.duo-cell.acc .duo-num{color:var(--cyan);text-shadow:0 0 30px rgba(63,224,200,.35)}
+.duo-sub{font:600 11px var(--body);color:var(--dim);margin-top:3px}
+.delta-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:99px;font:700 12px var(--mono);align-self:flex-start}
+.delta-chip svg{width:13px;height:13px}
+.delta-chip.ok{background:rgba(123,224,106,.09);border:1px solid rgba(123,224,106,.4);color:var(--ok)}
+.delta-chip.mid{background:rgba(255,176,32,.09);border:1px solid rgba(255,176,32,.4);color:var(--amber)}
+.delta-chip.bad{background:rgba(255,92,77,.09);border:1px solid rgba(255,92,77,.45);color:var(--coral)}
+.delta-chip.off{background:var(--inset);border:1px solid var(--line2);color:var(--dim)}
+.trail{display:flex;justify-content:space-between;align-items:center;margin-top:22px;padding:4px 8px 2px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+.trail span{display:block;transform:rotate(var(--rot)) var(--flip,)}
+.trail svg{width:21px;height:21px;display:block;color:#3D5C47;opacity:.16}
+.stage.run .trail svg{animation:trailStep var(--trailDur,6.6s) linear infinite;animation-delay:calc(var(--i)*var(--stepInt,.55s))}
+@keyframes trailStep{0%,100%{opacity:.16;color:#3D5C47}4%{opacity:1;color:var(--lime);transform:translateY(-3px)}15%{opacity:.16;color:#3D5C47}}
+.tempo-badge{font:700 10.5px var(--mono);color:var(--cyan);background:rgba(63,224,200,.08);border:1px solid rgba(63,224,200,.3);border-radius:99px;padding:4px 10px;white-space:nowrap}
+.tempo-big-row{display:flex;align-items:baseline;gap:9px;margin:2px 0}
+.tempo-big{font:800 46px/1 var(--mono);color:var(--lime);text-shadow:0 0 26px rgba(183,240,74,.3)}
+.tempo-unit{font:600 13px var(--body);color:var(--muted)}
+.tempo-sub{font:500 12px var(--mono);color:var(--dim);margin-bottom:12px}
+.runs-list{max-height:170px;overflow-y:auto;display:flex;flex-direction:column;padding-right:4px}
+.run-item{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px dashed var(--line)}
+.run-item:last-child{border-bottom:0}
+.run-main{flex:1;min-width:0}.run-title{font:700 13px var(--body)}.run-sub{font:500 11px var(--mono);color:var(--dim)}
+.rate-chip{font:700 11.5px var(--mono);color:var(--lime);background:rgba(183,240,74,.09);border:1px solid rgba(183,240,74,.25);border-radius:8px;padding:3px 8px;white-space:nowrap}
+.icon-btn{width:29px;height:29px;flex:none;border-radius:9px;border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;display:grid;place-items:center}
+.icon-btn svg{width:15px;height:15px}
+.icon-btn:hover{color:var(--coral);background:rgba(255,92,77,.1);border-color:rgba(255,92,77,.3)}
+.empty-box{border:1.5px dashed var(--line2);border-radius:14px;padding:20px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:9px}
+.empty-box svg{width:27px;height:27px;color:var(--dim)}.empty-box p{font-size:12.5px;color:var(--muted)}
+.btn-sm{padding:8px 15px;font-size:12.5px;border-radius:10px}
+.tempo-hint{font-size:11.5px;color:var(--dim);margin-top:11px}
+.set-row{margin-bottom:16px}.set-row:last-child{margin-bottom:2px}
+.set-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.set-name{font:700 13px var(--body);display:flex;align-items:center;gap:7px}
+.set-name svg{width:14px;height:14px;color:var(--cyan)}
+.set-out{font:700 13px var(--mono);color:var(--lime)}
+.set-sub{font-size:11px;color:var(--dim);margin-top:5px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;cursor:pointer;background:linear-gradient(90deg,var(--lime-lo) 0 var(--fill,50%),#22392B var(--fill,50%) 100%);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;background:var(--lime);border:3px solid #0B1210;box-shadow:0 0 10px rgba(183,240,74,.55);cursor:grab}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--lime);border:3px solid #0B1210}
+input[type=range]:focus-visible{outline:2px solid var(--lime);outline-offset:4px}
+.goal-stepper{display:flex;align-items:center;gap:9px}
+.goal-stepper .stepper-btn{width:34px;height:34px;font-size:18px;border-radius:10px}
+.goal-val{font:800 17px var(--mono);min-width:86px;text-align:center}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:8px 6px;border-radius:10px;border:1px solid var(--line2);cursor:pointer;background:var(--inset);color:var(--muted);font:700 12px var(--body)}
+.seg button.on{background:rgba(63,224,200,.12);border-color:rgba(63,224,200,.55);color:var(--cyan)}
+.acc-set-line{display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap}
+.test-line{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap}
+.test-count{font:800 15px var(--mono);color:var(--cyan-hi)}
+.switch-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sw{position:relative;width:46px;height:25px;flex:none;cursor:pointer}
+.sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.sw .track{position:absolute;inset:0;border-radius:99px;background:#22392B;border:1px solid var(--line2);transition:.25s;pointer-events:none}
+.sw .track::after{content:"";position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:50%;background:#5B7565;transition:.25s cubic-bezier(.2,.7,.3,1.3)}
+.sw input:checked + .track{background:linear-gradient(135deg,var(--lime-hi),var(--lime-lo));border-color:var(--lime-lo)}
+.sw input:checked + .track::after{transform:translateX(21px);background:#0B1210}
+.demo-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;cursor:pointer;border:1px solid rgba(167,139,250,.4);background:rgba(167,139,250,.08);color:var(--violet);font:700 11px var(--body)}
+.hist-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.hist-search{flex:1;min-width:120px;height:36px;border-radius:10px;border:1px solid var(--line2);background:var(--inset);color:var(--text);padding:0 12px;font:600 12.5px var(--body)}
+.hist-search:focus{outline:none;border-color:var(--cyan)}
+.hist-sort{height:36px;border-radius:10px;border:1px solid var(--line2);background:var(--inset);color:var(--muted);padding:0 8px;font:600 12px var(--body);cursor:pointer}
+.hist-filter{display:flex;gap:5px}
+.hist-filter button{padding:0 11px;height:36px;border-radius:10px;border:1px solid var(--line2);background:var(--inset);color:var(--muted);font:700 11.5px var(--body);cursor:pointer}
+.hist-filter button.on{background:rgba(183,240,74,.1);border-color:rgba(183,240,74,.5);color:var(--lime)}
+.hist-stats{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.today-big{font:800 27px var(--mono);color:var(--lime)}
+.today-lbl{font:600 11px var(--body);color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+.hist-totals{font:500 11.5px var(--mono);color:var(--dim);text-align:right}
+.chart{display:flex;align-items:flex-end;gap:7px;height:96px;margin:12px 0 4px}
+.bar-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%;min-width:0}
+.bar-val{font:700 9.5px var(--mono);color:var(--dim);white-space:nowrap}
+.bar-fill{width:100%;max-width:34px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#3E7A52,#2A5238);transition:filter .2s,height .5s}
+.bar-col:hover .bar-fill{filter:brightness(1.3)}
+.bar-fill.today{background:linear-gradient(180deg,var(--lime-hi),var(--lime-lo));box-shadow:0 0 12px rgba(183,240,74,.35)}
+.bar-fill.demo{background:repeating-linear-gradient(45deg,rgba(167,139,250,.85) 0 5px,rgba(167,139,250,.3) 5px 10px)}
+.bar-day{font:600 10px var(--body);color:var(--dim)}.bar-day.today{color:var(--lime)}
+.chart-legend{display:flex;gap:14px;margin:2px 0 8px;font:500 10px var(--body);color:var(--dim)}
+.chart-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.legend-real{background:linear-gradient(180deg,#3E7A52,#2A5238)}
+.legend-demo{background:repeating-linear-gradient(45deg,rgba(167,139,250,.85) 0 3px,rgba(167,139,250,.3) 3px 6px)}
+.hist-list{max-height:250px;overflow-y:auto;padding-right:4px;margin-top:8px}
+.hist-item{display:flex;align-items:center;gap:11px;padding:9px 2px;border-bottom:1px dashed var(--line);cursor:pointer;border-radius:8px}
+.hist-item:hover{background:rgba(183,240,74,.04)}
+.hist-item:last-child{border-bottom:0}
+.hist-ico{width:35px;height:35px;flex:none;border-radius:11px;display:grid;place-items:center;background:rgba(183,240,74,.08);border:1px solid rgba(183,240,74,.2);color:var(--lime)}
+.hist-ico svg{width:17px;height:17px}
+.hist-ico.demo{background:rgba(167,139,250,.09);border-color:rgba(167,139,250,.3);color:var(--violet)}
+.hist-main{flex:1;min-width:0}.hist-title{font:700 13.5px var(--body)}
+.hist-title .acc-n{color:var(--cyan);font:12px var(--mono)}
+.hist-sub{font:500 11px var(--mono);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.demo-chip{font:700 9.5px var(--body);color:var(--violet);background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);border-radius:6px;padding:2px 7px;flex:none}
+footer{max-width:1240px;margin:0 auto;padding:16px 22px 26px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;animation:rise .7s .45s backwards}
+.foot-note{font-size:11.5px;color:var(--dim);max-width:640px}
+.foot-right{display:flex;align-items:center;gap:13px}
+.ver{font:700 10px var(--mono);color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+.reset-btn{display:inline-flex;align-items:center;gap:7px;background:none;border:1px solid transparent;cursor:pointer;color:var(--dim);font:600 12px var(--body);padding:7px 11px;border-radius:10px}
+.reset-btn svg{width:13px;height:13px}
+.reset-btn:hover{color:var(--coral);border-color:rgba(255,92,77,.3)}
+.reset-btn.armed{background:linear-gradient(135deg,#E0402C,var(--coral-lo));color:#FFF6F4}
+.toasts{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;width:min(430px,calc(100vw - 28px))}
+.toast{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:14px;position:relative;overflow:hidden;background:rgba(16,30,22,.96);backdrop-filter:blur(10px);border:1px solid var(--line2);box-shadow:0 12px 40px rgba(0,0,0,.5);animation:toastIn .3s}
+@keyframes toastIn{from{opacity:0;transform:translateY(14px)}}
+.toast.out{opacity:0;transform:translateY(10px);transition:.25s}
+.toast svg{width:18px;height:18px;flex:none}.toast .t-msg{flex:1;font:600 13px var(--body);min-width:0}
+.toast .t-act{flex:none;padding:6px 12px;border-radius:9px;border:1px solid rgba(183,240,74,.45);background:rgba(183,240,74,.08);color:var(--lime);font:700 12px var(--body);cursor:pointer}
+.toast .t-life{position:absolute;left:0;bottom:0;height:2px;width:100%}
+.toast.info svg{color:var(--info)}.toast.info .t-life{background:var(--info)}
+.toast.success svg{color:var(--ok)}.toast.success .t-life{background:var(--ok)}
+.toast.warn svg{color:var(--warn)}.toast.warn .t-life{background:var(--warn)}
+.toast.danger svg{color:var(--danger)}.toast.danger .t-life{background:var(--danger)}
+.drawer-scrim{position:fixed;inset:0;background:var(--scrim);backdrop-filter:blur(3px);z-index:90;opacity:0;pointer-events:none;transition:.25s}
+.drawer-scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);z-index:95;background:linear-gradient(170deg,#13291D,#0F1B14);border-left:1px solid var(--line2);box-shadow:-20px 0 60px rgba(0,0,0,.5);transform:translateX(102%);transition:transform .3s cubic-bezier(.2,.7,.3,1);display:flex;flex-direction:column;padding:22px;overflow-y:auto}
+.drawer.open{transform:none}
+.drawer h3{font:700 16px var(--disp);margin-bottom:4px}
+.drawer .d-date{font:600 12px var(--mono);color:var(--dim);margin-bottom:16px}
+.d-field{margin-bottom:14px}
+.d-field label{display:block;font:700 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.d-field input{width:100%;height:48px;border-radius:12px;border:1px solid var(--line2);background:var(--inset);color:var(--text);font:800 22px var(--mono);padding:0 14px}
+.d-field input:focus{outline:none;border-color:var(--lime)}
+.d-field input.acc-in:focus{border-color:var(--cyan)}
+.d-readonly{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.d-ro{background:var(--inset);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.d-ro .k{font:700 9.5px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.d-ro .v{font:700 16px var(--mono);margin-top:2px}
+.drawer .btn-row{margin-top:auto}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+@media(max-width:1080px){.grid3{grid-template-columns:1fr 1fr}.grid3 .card:nth-child(3){grid-column:1/-1}}
+@media(max-width:900px){.stage-grid{grid-template-columns:1fr;gap:22px}.panel{min-height:0}}
+@media(max-width:760px){.grid3{grid-template-columns:1fr}.grid3 .card:nth-child(3){grid-column:auto}.tagline{display:none}main{padding:16px 14px 6px}.stage{padding:18px 16px 14px}.topbar-in{padding:10px 14px}footer{padding:14px 14px 24px}}
+@media(max-width:680px){.chip-status .st-text{display:none}.chip-status{padding:9px}}
+@media(max-width:560px){.btn-sound span{display:none}.btn-sound{padding:9px}.tab{padding:9px 11px;font-size:12.5px}}
+@media(max-width:420px){.dial-btn{width:76px;height:76px}.dial-btn svg{width:23px;height:23px}.dial-center{padding:0 38px}.duo{gap:8px}.duo-cell{padding:10px 11px}}
+@media(hover:none){.kbd-hint{display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}.glow{animation:none}}
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"><div class="glow g1"></div><div class="glow g2"></div><div class="glow g3"></div><div class="lanes"></div><div class="grain"></div></div>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="logo">
+      <div class="logo-box"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.2 2.6c2.2.4 3.5 2.5 3.2 5-.2 2.2-1.4 3.7-3.3 3.4-1.9-.2-3-2-2.8-4.2.2-2.5 1.2-4.6 2.9-4.2Z"/><ellipse cx="8.9" cy="15.2" rx="2.1" ry="2.4"/><path d="M16.6 8.1c2.2.4 3.5 2.5 3.2 5-.2 2.2-1.4 3.7-3.3 3.4-1.9-.2-3-2-2.8-4.2.2-2.5 1.2-4.6 2.9-4.2Z" opacity=".55"/><ellipse cx="16.3" cy="20.7" rx="2.1" ry="2.4" opacity=".55"/></svg></div>
+      <div><div class="wordmark">ШАГОМЕР</div><div class="tagline">Темп + независимый датчик движения</div></div>
+    </div>
+    <div class="top-right">
+      <div class="chip-status"><span class="dot" id="statusDot"></span><span class="st-text" id="statusText">Готов</span></div>
+      <button class="btn-sound" id="soundBtn" aria-pressed="true"><span id="soundIco"></span><span id="soundLbl">Звук вкл</span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="card stage" id="stageCard">
+    <div class="tabs" id="tabsBox" role="tablist">
+      <button class="tab active" id="tabCal" data-phase="cal" role="tab"><span class="num">1</span>Калибровка</button>
+      <button class="tab" id="tabWalk" data-phase="walk" role="tab"><span class="num">2</span>Прогулка
+        <svg class="lockico" id="walkLock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button>
+    </div>
+    <p class="phase-hint" id="phaseHint"></p>
+    <div class="stage-grid">
+      <div class="dial-wrap is-cal" id="dialWrap">
+        <svg viewBox="0 0 340 340" aria-hidden="true">
+          <defs>
+            <linearGradient id="gradMin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D6F86B"/><stop offset="1" stop-color="#3FE0C8"/></linearGradient>
+            <linearGradient id="gradGoal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8FD62F"/><stop offset="1" stop-color="#B7F04A"/></linearGradient>
+            <filter id="dotGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <g id="ticks"></g>
+          <circle cx="170" cy="170" r="150" fill="none" stroke="#22392B" stroke-width="6"/>
+          <circle id="minArc" cx="170" cy="170" r="150" fill="none" stroke="url(#gradMin)" stroke-width="6" stroke-linecap="round" transform="rotate(-90 170 170)"/>
+          <g id="dotG"><circle cx="170" cy="20" r="5.5" fill="#D6F86B" filter="url(#dotGlow)"/></g>
+          <circle id="goalTrack" cx="170" cy="170" r="132" fill="none" stroke="#1B2C22" stroke-width="10"/>
+          <circle id="goalArc" cx="170" cy="170" r="132" fill="none" stroke="url(#gradGoal)" stroke-width="10" stroke-linecap="round" transform="rotate(-90 170 170)"/>
+        </svg>
+        <div class="dial-center">
+          <button class="dial-btn go" id="dialBtn" data-action="dial"></button>
+          <div class="d-time-row"><div class="d-time" id="timeMain">00:00</div><div class="d-tenth" id="timeTenth">.0</div></div>
+          <div class="d-label" id="dialLabel">Калибровка</div>
+          <div class="d-sub" id="dialSub">нажмите «Старт»</div>
+        </div>
+        <div class="burst-layer" id="burstLayer"></div>
+      </div>
+      <div class="panel" id="panel"></div>
+    </div>
+    <div class="trail" id="trail" aria-hidden="true"></div>
+  </section>
+
+  <section class="grid3">
+    <article class="card">
+      <div class="card-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg><h2>Ваш темп</h2><span class="spacer"></span><span class="tempo-badge" id="tempoBadge" hidden></span></div>
+      <div id="tempoFilled" hidden>
+        <div class="tempo-big-row"><span class="tempo-big" id="tempoValue">0</span><span class="tempo-unit">шагов / мин</span></div>
+        <div class="tempo-sub" id="tempoPerSec"></div>
+        <div class="runs-list" id="runsList"></div>
+        <p class="tempo-hint">Среднее по замерам. Кнопка «Уточнить темп по датчику» в итоге прогулки добавляет замер автоматически.</p>
+      </div>
+      <div id="tempoEmpty"><div class="empty-box"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.6 2.2c2.6.5 4.2 3 3.9 6-.3 2.6-1.7 4.4-4 4.1-2.3-.3-3.6-2.4-3.4-5 .2-3 1.4-5.5 3.5-5.1Z"/><ellipse cx="13.2" cy="17.6" rx="2.6" ry="2.9"/></svg><p>Темп ещё не измерен.<br>Пройдите короткую калибровку.</p><button class="btn btn-ghost btn-sm" data-action="goto-cal">Измерить темп</button></div></div>
+    </article>
+
+    <article class="card">
+      <div class="card-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="7" cy="18" r="2" fill="currentColor" stroke="none"/></svg><h2>Параметры и датчик</h2></div>
+      <div class="set-row">
+        <div class="set-top"><span class="set-name">Длина шага</span><span class="set-out" id="strideOut">70 см</span></div>
+        <input type="range" id="strideRange" min="40" max="100" value="70" aria-label="Длина шага">
+      </div>
+      <div class="set-row">
+        <div class="set-top"><span class="set-name">Вес</span><span class="set-out" id="weightOut">70 кг</span></div>
+        <input type="range" id="weightRange" min="40" max="150" value="70" aria-label="Вес">
+      </div>
+      <div class="set-row">
+        <div class="set-top"><span class="set-name">Цель прогулки</span></div>
+        <div class="goal-stepper"><button class="stepper-btn" id="goalMinus" data-goal="-500">−</button><span class="goal-val" id="goalOut">5 000</span><button class="stepper-btn" id="goalPlus" data-goal="500">+</button></div>
+      </div>
+      <div class="set-row">
+        <div class="set-top"><span class="set-name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>Чувствительность датчика</span></div>
+        <div class="seg" id="sensSeg"><button data-sens="low">Низкая</button><button data-sens="mid" class="on">Средняя</button><button data-sens="high">Высокая</button></div>
+        <div class="set-top" style="margin-top:10px"><span class="set-name">Мин. интервал шага</span><span class="set-out" id="minIntOut">300 мс</span></div>
+        <input type="range" id="minIntRange" min="240" max="460" step="10" value="300" aria-label="Минимальный интервал между шагами">
+        <canvas class="wave" id="setWave" height="64"></canvas>
+        <div class="diag" id="setDiag">датчик: —</div>
+        <div class="acc-set-line"><span class="acc-dot" id="accSetDot"></span><span class="set-sub" id="accSetNote" style="margin-top:0"></span><button class="perm-btn" data-action="acc-perm" hidden>Разрешить датчик</button></div>
+        <div class="test-line"><button class="btn btn-cy btn-sm" id="testBtn" data-action="acc-test">Проверить датчик</button><span class="test-count" id="testCount" hidden>Тест: 0 шагов</span></div>
+        <div class="set-sub">На Android разрешение не нужно — датчик включается сам. График показывает живой сигнал; жёлтые линии — порог, зелёные точки — засчитанные шаги.</div>
+      </div>
+      <div class="set-row">
+        <div class="switch-row"><span class="set-name">Не гасить экран</span><label class="sw"><input type="checkbox" id="wakeToggle" checked><span class="track"></span></label></div>
+        <div class="set-sub" id="wakeNote"></div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg><h2>История</h2><span class="spacer"></span><button class="demo-btn" id="demoBtn" hidden>Убрать примеры</button></div>
+      <div class="hist-tools">
+        <input class="hist-search" id="histSearch" type="search" placeholder="Поиск: шаги, дата…" aria-label="Поиск по истории">
+        <select class="hist-sort" id="histSort" aria-label="Сортировка"><option value="date-desc">Сначала новые</option><option value="date-asc">Сначала старые</option><option value="steps-desc">Больше шагов</option><option value="dur-desc">Дольше время</option></select>
+        <div class="hist-filter" id="histFilter"><button data-hfilter="all" class="on">Все</button><button data-hfilter="mine">Мои</button><button data-hfilter="demo">Примеры</button></div>
+      </div>
+      <div class="hist-stats"><div><div class="today-big" id="todaySteps">0</div><div class="today-lbl">шагов сегодня</div></div><div class="hist-totals" id="histTotals"></div></div>
+      <div class="chart" id="chart"></div>
+      <div class="chart-legend" id="chartLegend" hidden><span><i class="legend-real"></i>ваши</span><span><i class="legend-demo"></i>примеры</span></div>
+      <div class="hist-list" id="histList"></div>
+      <div class="empty-box" id="histEmpty" hidden><p>Ничего не найдено. Завершите прогулку или измените фильтр.</p></div>
+    </article>
+  </section>
+</main>
+
+<footer>
+  <p class="foot-note">Оценка по темпу и независимый счёт по акселерометру. Не медицинский прибор. Данные — только в вашем браузере. Нажмите на запись истории, чтобы открыть и исправить её.</p>
+  <div class="foot-right"><button class="reset-btn" id="resetBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span id="resetLbl">Сбросить все данные</span></button><span class="ver">v1.2</span></div>
+</footer>
+
+<div class="drawer-scrim" id="drawerScrim" data-action="d-close"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Запись прогулки">
+  <h3>Запись прогулки</h3>
+  <div class="d-date" id="dDate"></div>
+  <div class="d-field"><label for="dSteps">Шаги по таймеру</label><input id="dSteps" type="number" min="0" max="999999" inputmode="numeric"></div>
+  <div class="d-field"><label for="dAcc">Шаги по датчику</label><input id="dAcc" class="acc-in" type="number" min="0" max="999999" inputmode="numeric" placeholder="—"></div>
+  <div class="d-readonly">
+    <div class="d-ro"><div class="k">Время</div><div class="v" id="dDur"></div></div>
+    <div class="d-ro"><div class="k">Дистанция</div><div class="v" id="dDist"></div></div>
+    <div class="d-ro"><div class="k">Калории</div><div class="v" id="dKcal"></div></div>
+    <div class="d-ro"><div class="k">Расхождение</div><div class="v" id="dDelta"></div></div>
+  </div>
+  <p class="p-note" style="margin-bottom:14px">Дистанция и калории пересчитываются от шагов по таймеру с текущими параметрами.</p>
+  <div class="btn-row"><button class="btn btn-primary" data-action="d-save">Сохранить</button><button class="btn btn-stop" data-action="d-del">Удалить</button><button class="btn btn-ghost" data-action="d-close">Закрыть</button></div>
+</aside>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="sr-only" id="srLive" aria-live="polite"></div>
+<noscript><p style="padding:20px;text-align:center;color:#FFB020">Нужен включённый JavaScript.</p></noscript>
+
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const NF=new Intl.NumberFormat('ru-RU');
+const fmtInt=n=>NF.format(Math.round(n));
+const pad=n=>String(n).padStart(2,'0');
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const WD=['вс','пн','вт','ср','чт','пт','сб'];
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmtClock=s=>{const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return h>0?h+':'+pad(m)+':'+pad(x):pad(m)+':'+pad(x)};
+const fmtClockMs=ms=>fmtClock(Math.floor(ms/1000));
+const fmtKm=m=>m<1000?Math.round(m)+' м':(m/1000).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' км';
+function relDate(ts){const d=new Date(ts),n=new Date();const day=t=>new Date(t.getFullYear(),t.getMonth(),t.getDate()).getTime();const df=Math.round((day(n)-day(d))/864e5);const hm=pad(d.getHours())+':'+pad(d.getMinutes());return df===0?'Сегодня, '+hm:df===1?'Вчера, '+hm:d.getDate()+' '+MONTHS[d.getMonth()]+', '+hm}
+function plural(n,a,b,c){const x=Math.abs(n)%100,y=x%10;return x>10&&x<20?c:y>1&&y<5?b:y===1?a:c}
+const svgW=(i,f)=>'<svg viewBox="0 0 24 24" '+(f?'fill="currentColor"':'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"')+'>'+i+'</svg>';
+const I={
+ play:svgW('<path d="M7 4.5 19 12 7 19.5Z"/>',1),pause:svgW('<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',1),
+ flag:svgW('<path d="M5 21V4"/><path d="M5 4c3-1.6 6 1.6 9 0 1.8-.9 3-.9 4 0v8c-1 .9-2.2.9-4 0-3-1.6-6 1.6-9 0Z"/>',1),
+ foot:svgW('<path d="M13.6 2.2c2.6.5 4.2 3 3.9 6-.3 2.6-1.7 4.4-4 4.1-2.3-.3-3.6-2.4-3.4-5 .2-3 1.4-5.5 3.5-5.1Z"/><ellipse cx="13.2" cy="17.6" rx="2.6" ry="2.9"/>',1),
+ lock:svgW('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+ trash:svgW('<path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/>'),
+ target:svgW('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>'),
+ flame:svgW('<path d="M12 3c1 3 4 4.5 4 8a4 4 0 0 1-8 0c0-1.5.6-2.6 1.5-3.7C10 8.6 11.6 6 12 3Z"/>'),
+ route:svgW('<path d="M3 17c4 0 5-10 9-10s5 10 9 10"/><circle cx="3" cy="17" r="1.6" fill="currentColor" stroke="none"/><circle cx="21" cy="17" r="1.6" fill="currentColor" stroke="none"/>'),
+ copy:svgW('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
+ check:svgW('<path d="M5 13l4 4L19 7"/>'),info:svgW('<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="8" r=".6" fill="currentColor"/>'),
+ warn:svgW('<path d="M12 3 2.5 20h19Z"/><path d="M12 9.5v4.5"/><circle cx="12" cy="17" r=".6" fill="currentColor"/>'),
+ zap:svgW('<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>',1),
+ wave:svgW('<path d="M2 12h3l2.5-7 4 14 3-10 2 3h5.5"/>'),
+ clock:svgW('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>'),
+ delta:svgW('<path d="M12 4 20 19H4Z"/>'),
+ sndOn:svgW('<path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor" stroke="none"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>'),
+ sndOff:svgW('<path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor" stroke="none"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/>')
+};
+/* ---------- данные ---------- */
+const DKEY='shagomer.data.v2',SKEY='shagomer.session.v2';
+let storageWarned=false;
+const loadJSON=k=>{try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}};
+const saveJSON=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){if(!storageWarned){storageWarned=true;toast('Не удалось сохранить данные',{type:'warn'})}}};
+const removeKey=k=>{try{localStorage.removeItem(k)}catch(e){}};
+const DEFAULT_SET={stride:70,weight:70,goal:5000,sound:true,wake:true,sens:'mid',minInt:300};
+let D=loadJSON(DKEY)||loadJSON('shagomer.data.v1');
+if(!D){
+  const now=Date.now();
+  const mk=(dAgo,h,min,ms,steps)=>{const d=new Date(now-dAgo*864e5);d.setHours(h,min,0,0);const distM=steps*70/100;return{id:uid()+dAgo,ts:d.getTime(),ms,steps,stepsAcc:steps-Math.round(steps*(.012+dAgo*.004)),distM,kcal:Math.round(70*distM/1000*.52),demo:true}};
+  D={cals:[],walks:[mk(1,18,24,1930000,3584),mk(2,12,10,3525000,6412),mk(4,8,45,1263000,2296)],set:{...DEFAULT_SET},seeded:true};
+  saveJSON(DKEY,D);
+}
+D.set={...DEFAULT_SET,...(D.set||{})};
+const persist=()=>saveJSON(DKEY,D);
+const S={phase:'cal',st:'idle',startEpoch:0,acc:0,rateSnap:0,calElapsed:0,calAcc:null,lastResult:null,goalHit:false,lastMilestone:0};
+const elapsed=()=>S.acc+(S.st==='run'?Date.now()-S.startEpoch:0);
+function cadence(){let s=0,m=0;for(const c of D.cals){s+=c.steps;m+=c.ms}return m>0?s/(m/60000):0}
+const busy=()=>S.st==='run'||S.st==='pause'||S.st==='calInput';
+/* ---------- акселерометр: адаптивный детектор ---------- */
+const SENS={low:{k:1.35,min:1.2},mid:{k:1.12,min:.8},high:{k:.92,min:.5}};
+const ACC={supported:typeof DeviceMotionEvent!=='undefined',
+ needPrompt:typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function',
+ permission:'unknown',attached:false,hasData:false,steps:0,testSteps:0,testMode:false,testT:0,
+ grav:null,sm:0,above:false,peakT:0,lastStep:0,lastT:0,buf:[],thr:1,scale:2.4,amp:0,hz:0,evCount:0,evWin:0};
+function accUsable(){return ACC.attached&&(ACC.hasData||S.st==='run'||S.st==='pause'||ACC.testMode)}
+function accCount(){return ACC.attached&&ACC.hasData?ACC.steps:null}
+function attachMotion(){if(ACC.attached||!ACC.supported)return;window.addEventListener('devicemotion',onMotion);ACC.attached=true;ACC.evWin=Date.now()}
+function ensureMotion(){
+  if(!ACC.supported){renderAccUI(true);return}
+  if(ACC.needPrompt&&ACC.permission!=='granted'){
+    if(ACC.permission==='denied'){renderAccUI(true);return}
+    try{DeviceMotionEvent.requestPermission().then(r=>{if(r==='granted'){ACC.permission='granted';attachMotion();toast('Датчик включён',{type:'success'})}else{ACC.permission='denied';toast('Доступ к датчику запрещён',{type:'warn'})}renderAccUI(true)}).catch(()=>renderAccUI(true))}catch(e){renderAccUI(true)}
+    return;
+  }
+  attachMotion();renderAccUI(true);
+}
+function countStep(now){
+  ACC.lastStep=now;
+  if(ACC.testMode){ACC.testSteps++;const tc=$('testCount');if(tc)tc.textContent='Тест: '+fmtInt(ACC.testSteps)+' '+plural(ACC.testSteps,'шаг','шага','шагов')}
+  else if(S.st==='run'){ACC.steps++}
+  if(ACC.buf.length)ACC.buf[ACC.buf.length-1].s=true;
+}
+function onMotion(e){
+  const now=performance.now();
+  const dt=clamp(now-(ACC.lastT||now),1,200)/1000;ACC.lastT=now;
+  ACC.hasData=true;ACC.evCount++;
+  let mag=null,dyn;
+  const g=e.accelerationIncludingGravity;
+  if(g&&g.x!=null){mag=Math.sqrt(g.x*g.x+g.y*g.y+g.z*g.z);
+    ACC.grav=ACC.grav==null?mag:ACC.grav+(mag-ACC.grav)*Math.min(1,dt/1.0);
+    dyn=mag-ACC.grav;
+  }else{const a=e.acceleration;if(a&&a.x!=null){dyn=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z)}else return}
+  ACC.sm+=(dyn-ACC.sm)*Math.min(1,dt/.045);
+  ACC.buf.push({t:now,v:ACC.sm,s:false});
+  while(ACC.buf.length&&now-ACC.buf[0].t>4200)ACC.buf.shift();
+  let sq=0,n=0;
+  for(let i=ACC.buf.length-1;i>=0;i--){const p=ACC.buf[i];if(now-p.t>2500)break;sq+=p.v*p.v;n++}
+  const rms=n?Math.sqrt(sq/n):0;
+  const cfg=SENS[D.set.sens]||SENS.mid;
+  ACC.thr=clamp(cfg.k*rms,cfg.min,6);
+  ACC.amp=Math.max(Math.abs(ACC.sm),ACC.amp*.995);
+  const gate=(S.st==='run')!==ACC.testMode? (S.st==='run'||ACC.testMode):false;
+  const active=S.st==='run'||ACC.testMode;
+  if(!active){ACC.above=false;return}
+  if(!ACC.above&&ACC.sm>ACC.thr&&now-ACC.lastStep>D.set.minInt){ACC.above=true;ACC.peakT=now}
+  if(ACC.above){
+    if(ACC.sm<ACC.thr*.35||now-ACC.peakT>650){
+      ACC.above=false;
+      if(now-ACC.lastStep>D.set.minInt*.9)countStep(now);
+    }
+  }
+}
+function accStatus(){
+  if(!ACC.supported)return'unsupported';
+  if(ACC.permission==='denied')return'denied';
+  if(ACC.needPrompt&&ACC.permission!=='granted'&&!ACC.attached)return'needed';
+  if(!ACC.attached)return'idle';
+  if(!ACC.hasData)return Date.now()-ACC.evWin>2500?'nosignal':'waiting';
+  if(Date.now()-ACC.lastEventWall()>2500)return'nosignal';
+  if(ACC.testMode)return'testing';
+  if(S.st==='pause')return'paused';
+  return'active';
+}
+ACC.lastEventWall=()=>ACC._wall||0;
+const ACC_TXT={unsupported:'нет датчика на этом устройстве',needed:'нужно разрешение (iPhone)',denied:'доступ запрещён',
+ idle:'включится вместе с таймером',waiting:'ждём данные…',nosignal:'датчик не отвечает — возможно, это ПК',
+ active:'датчик активен · считает параллельно',paused:'пауза — датчик ждёт',testing:'идёт проверка датчика'};
+let lastAccStatus='';
+function renderAccUI(force){
+  const st=accStatus();if(!force&&st===lastAccStatus)return;lastAccStatus=st;
+  const note=$('accNote');if(note)note.textContent=ACC_TXT[st];
+  const dot=$('accDot');if(dot)dot.className='acc-dot '+st;
+  $('accSetNote').textContent=ACC_TXT[st]+(ACC.attached&&!ACC.needPrompt?' · разрешение не требуется':'');
+  $('accSetDot').className='acc-dot '+st;
+  document.querySelectorAll('[data-action="acc-perm"]').forEach(b=>b.hidden=st!=='needed');
+  const ic=$('accIdleChip');if(ic)ic.textContent=ACC_TXT[st];
+}
+/* график сигнала */
+function drawWave(cv){
+  if(!cv||!cv.isConnected)return;
+  const dpr=Math.min(2,devicePixelRatio||1);
+  const w=cv.clientWidth,h=cv.clientHeight;
+  if(!w||!h)return;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const now=performance.now(),span=4000,mid=h/2;
+  ACC.scale+= (Math.max(2.2,ACC.amp*1.15)-ACC.scale)*.05;
+  const sc=(h/2-6)/ACC.scale;
+  ctx.strokeStyle='#1B2C22';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,mid);ctx.lineTo(w,mid);ctx.stroke();
+  ctx.strokeStyle='rgba(255,176,32,.55)';ctx.setLineDash([4,4]);
+  const ty=mid-ACC.thr*sc,by=mid+ACC.thr*sc;
+  ctx.beginPath();ctx.moveTo(0,ty);ctx.lineTo(w,ty);ctx.moveTo(0,by);ctx.lineTo(w,by);ctx.stroke();ctx.setLineDash([]);
+  if(ACC.buf.length>1){
+    const grad=ctx.createLinearGradient(0,0,w,0);grad.addColorStop(0,'rgba(63,224,200,.15)');grad.addColorStop(1,'#3FE0C8');
+    ctx.strokeStyle=grad;ctx.lineWidth=1.6;ctx.beginPath();
+    let started=false;
+    for(const p of ACC.buf){const x=(1-(now-p.t)/span)*w;if(x<-4)continue;const y=clamp(mid-p.v*sc,1,h-1);if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y)}
+    ctx.stroke();
+    ctx.fillStyle='#B7F04A';
+    for(const p of ACC.buf){if(!p.s)continue;const x=(1-(now-p.t)/span)*w;if(x<0)continue;ctx.beginPath();ctx.arc(x,4,2.6,0,7);ctx.fill()}
+  }
+}
+function diagText(){
+  if(!ACC.attached)return'датчик: не подключён';
+  return'частота <b>'+ACC.hz+' Гц</b> · размах <b>'+ACC.amp.toFixed(1)+'</b> м/с² · порог <b>'+ACC.thr.toFixed(2)+'</b> · '+({low:'низкая',mid:'средняя',high:'высокая'})[D.set.sens];
+}
+/* ---------- сессия ---------- */
+function saveSession(){
+  if(busy())saveJSON(SKEY,{phase:S.phase,st:S.st,startEpoch:S.startEpoch,acc:S.acc,rateSnap:S.rateSnap,calElapsed:S.calElapsed,calAcc:S.calAcc,goalHit:S.goalHit,lastMilestone:S.lastMilestone,accSteps:ACC.steps});
+  else removeKey(SKEY);
+}
+/* ---------- звук ---------- */
+let AC=null,master=null;
+function ac(){if(!D.set.sound)return null;try{if(!AC){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;AC=new C();master=AC.createGain();master.gain.value=.16;master.connect(AC.destination)}if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}}
+function tone(f,t0,d,type,g,sl){const c=ac();if(!c)return;try{const o=c.createOscillator(),gn=c.createGain(),t=c.currentTime+t0;o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sl)o.frequency.exponentialRampToValueAtTime(sl,t+d);gn.gain.setValueAtTime(.0001,t);gn.gain.linearRampToValueAtTime(g||1,t+.012);gn.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(gn);gn.connect(master);o.start(t);o.stop(t+d+.06)}catch(e){}}
+const SND={start(){tone(440,0,.12,'sine',.9,660);tone(660,.1,.16,'sine',.9,880)},pause(){tone(520,0,.15,'sine',.7,330)},
+ finish(){tone(660,0,.14);tone(880,.12,.16);tone(1100,.24,.24,'sine',.8)},save(){[523,659,784,1046].forEach((f,i)=>tone(f,i*.08,.14,'sine',.75))},
+ mile(){tone(980,0,.09,'triangle',.5);tone(1470,.06,.1,'triangle',.35)},goal(){[659,784,988,1318].forEach((f,i)=>tone(f,i*.1,.22,'sine',.85));tone(1568,.42,.34,'sine',.7)},
+ err(){tone(190,0,.18,'square',.3,140)},click(){tone(700,0,.05,'triangle',.25)}};
+document.addEventListener('pointerdown',()=>ac(),{once:true});
+/* ---------- тосты / эффекты ---------- */
+const toastsBox=$('toasts');
+function toast(msg,o){o=o||{};const type=o.type||'info',dur=o.dur||(o.action?6500:4500);
+ while(toastsBox.children.length>=3)toastsBox.firstChild.remove();
+ const el=document.createElement('div');el.className='toast '+type;
+ el.innerHTML=(type==='success'?I.check:type==='warn'||type==='danger'?I.warn:I.info)+'<span class="t-msg"></span>'+(o.action?'<button class="t-act"></button>':'')+'<span class="t-life"></span>';
+ el.querySelector('.t-msg').textContent=msg;
+ const life=el.querySelector('.t-life');if(life.animate&&!reducedMotion)life.animate([{width:'100%'},{width:'0%'}],{duration:dur,easing:'linear',fill:'forwards'});
+ let closed=false;const close=()=>{if(closed)return;closed=true;el.classList.add('out');setTimeout(()=>el.remove(),260)};
+ if(o.action){const b=el.querySelector('.t-act');b.textContent=o.action.label;b.addEventListener('click',()=>{o.action.fn();close()})}
+ toastsBox.appendChild(el);setTimeout(close,dur)}
+const announce=t=>{$('srLive').textContent=t};
+const burstLayer=$('burstLayer'),dialWrap=$('dialWrap');let pulseT=0;
+function pulse(c,ms){dialWrap.classList.remove('pulse','goal-flash');void dialWrap.offsetWidth;dialWrap.classList.add(c);clearTimeout(pulseT);pulseT=setTimeout(()=>dialWrap.classList.remove(c),ms)}
+function burst(n){if(reducedMotion||!burstLayer.animate)return;const cols=['#B7F04A','#3FE0C8','#FFB020','#D6F86B'];
+ for(let i=0;i<n;i++){const s=document.createElement('i');s.className='spark';s.style.background=cols[i%4];burstLayer.appendChild(s);
+ const a=Math.random()*6.283,d=60+Math.random()*85;
+ const an=s.animate([{transform:'translate(-50%,-50%)',opacity:1},{transform:'translate(calc(-50% + '+Math.cos(a)*d+'px),calc(-50% + '+Math.sin(a)*d+'px)) scale(.15)',opacity:0}],{duration:600+Math.random()*450,easing:'cubic-bezier(.2,.7,.3,1)'});an.onfinish=()=>s.remove()}}
+function floater(t){const h=$('mSteps');if(!h||!h.animate||reducedMotion)return;const f=document.createElement('span');f.className='float-num';f.textContent=t;h.appendChild(f);const a=f.animate([{transform:'translateY(0)',opacity:1},{transform:'translateY(-26px)',opacity:0}],{duration:1100});a.onfinish=()=>f.remove()}
+function animateCount(el,to){const t0=performance.now(),dur=reducedMotion?1:950;(function f(t){if(!el.isConnected)return;const p=Math.min(1,(t-t0)/dur);el.textContent=fmtInt(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(f)})(t0)}
+/* ---------- wake lock ---------- */
+let wakeSentinel=null;const wakeSupported='wakeLock' in navigator;
+async function acquireWake(){if(!D.set.wake||!wakeSupported||S.st!=='run'||document.visibilityState!=='visible'||wakeSentinel)return;
+ try{wakeSentinel=await navigator.wakeLock.request('screen');wakeSentinel.addEventListener('release',()=>{wakeSentinel=null;renderWakeNote()});renderWakeNote()}catch(e){}}
+function releaseWake(){if(wakeSentinel){try{wakeSentinel.release()}catch(e){}wakeSentinel=null}renderWakeNote()}
+function renderWakeNote(){$('wakeNote').textContent=!wakeSupported?'Браузер не умеет удерживать экран':wakeSentinel?'Экран не гаснет, пока идёт таймер':'Экран будет гореть во время таймера'}
+/* ---------- циферблат ---------- */
+const R1=150,R2=132,C1=2*Math.PI*R1,C2=2*Math.PI*R2;
+const minArc=$('minArc'),goalArc=$('goalArc'),dotG=$('dotG');
+minArc.style.strokeDasharray=C1;minArc.style.strokeDashoffset=C1;
+goalArc.style.strokeDasharray=C2;goalArc.style.strokeDashoffset=C2;
+(function(){const g=$('ticks'),NS='http://www.w3.org/2000/svg';
+ for(let i=0;i<60;i++){const a=i*6*Math.PI/180,mj=i%5===0,r1=158,r2=mj?167:163;
+ const l=document.createElementNS(NS,'line');l.setAttribute('x1',170+Math.sin(a)*r1);l.setAttribute('y1',170-Math.cos(a)*r1);l.setAttribute('x2',170+Math.sin(a)*r2);l.setAttribute('y2',170-Math.cos(a)*r2);l.setAttribute('stroke',mj?'#3B5A44':'#2A4433');l.setAttribute('stroke-width',mj?2:1);l.setAttribute('stroke-linecap','round');g.appendChild(l)}})();
+(function(){const t=$('trail');for(let i=0;i<12;i++){const sp=document.createElement('span');sp.style.setProperty('--i',i);sp.style.setProperty('--rot',(i%2?9:-9)+'deg');if(i%2)sp.style.setProperty('--flip','scaleX(-1)');sp.innerHTML=I.foot;t.appendChild(sp)}})();
+/* ---------- панель ---------- */
+const panel=$('panel');let liveSteps=null,liveDist=null,liveKcal=null,accVal=null;
+function refreshLiveRefs(){liveSteps=$('liveSteps');liveDist=$('liveDist');liveKcal=$('liveKcal');accVal=$('accVal')}
+const kbd='<span class="kbd-hint">Пробел — старт/пауза.</span>';
+function accBox(compact){
+ const val=accUsable()?fmtInt(ACC.steps):'—';
+ if(compact)return'<div class="acc-hint">'+I.wave+'<span>Датчик: <b id="accVal">'+val+'</b> шагов</span><span class="acc-note" style="margin-top:0"><span class="acc-dot" id="accDot"></span><span id="accNote"></span></span><button class="perm-btn" data-action="acc-perm" hidden>Разрешить</button></div>';
+ return'<div class="metric acc duo-m"><div class="lbl">'+I.wave+'Шаги · датчик</div><div class="val" id="accVal">'+val+'</div>'+
+  '<canvas class="wave" id="accWave" height="64"></canvas><div class="diag" id="accDiag"></div>'+
+  '<div class="acc-note"><span class="acc-dot" id="accDot"></span><span id="accNote"></span><button class="perm-btn" data-action="acc-perm" hidden>Разрешить</button></div></div>';
+}
+function tplCalIdle(){return'<div class="p-head"><span class="p-ico">'+I.foot+'</span><div><h3>Калибровка темпа</h3><p>Узнаем, сколько шагов вы делаете в минуту.</p></div></div>'+
+ '<ol class="steps-list"><li class="on"><b>1</b>Старт — идите обычным шагом, считая шаги.</li><li><b>2</b>Через 30–60 с нажмите «Финиш».</li><li><b>3</b>Введите число шагов.</li></ol>'+
+ '<button class="btn btn-primary btn-xl" data-action="start">'+I.play+'Начать калибровку</button><p class="p-note">Датчик считает параллельно и подскажет своё число. '+kbd+'</p>'}
+function tplWalkIdle(){const c=Math.round(cadence());return'<div class="p-head"><span class="p-ico">'+I.zap+'</span><div><h3>Прогулка</h3><p>Таймер и датчик считают независимо и параллельно.</p></div></div>'+
+ '<div class="mini-chips"><span class="mini-chip">'+I.clock+'темп <b>'+fmtInt(c)+' ш/мин</b></span><span class="mini-chip">'+I.target+'цель <b>'+fmtInt(D.set.goal)+'</b></span><span class="mini-chip cy">'+I.wave+'<span id="accIdleChip"></span></span></div>'+
+ '<button class="btn btn-primary btn-xl" data-action="start">'+I.play+'Начать прогулку</button><p class="p-note">Круглая кнопка в табло — старт и пауза. В конце «Финиш» покажет обе цифры. '+kbd+'</p>'}
+function tplWalkLocked(){return'<div class="p-head"><span class="p-ico warn">'+I.lock+'</span><div><h3>Сначала — калибровка</h3><p>Нужен ваш темп: один короткий замер.</p></div></div><button class="btn btn-primary btn-xl" data-action="goto-cal">'+I.foot+'Пройти калибровку</button>'}
+function tplRunning(){const isCal=S.phase==='cal';let body;
+ if(isCal){body='<ol class="steps-list"><li class="done"><b>✓</b>Таймер запущен.</li><li class="on"><b>2</b>Идите и считайте шаги.</li><li><b>3</b>Введите число после финиша.</li></ol>'+accBox(true)}
+ else{const rm=Math.round(S.rateSnap*60000);
+  body='<div class="m-duo"><div class="metric duo-m" id="mSteps"><div class="lbl">'+I.clock+'Шаги · по таймеру</div><div class="val" id="liveSteps">0</div><div class="acc-note">оценка по темпу</div></div>'+accBox(false)+'</div>'+
+  '<div class="m-small-row"><div class="metric"><div class="lbl">'+I.route+'Дистанция</div><div class="val" id="liveDist">0 м</div></div><div class="metric"><div class="lbl">'+I.flame+'Калории</div><div class="val" id="liveKcal">≈ 0</div></div><div class="metric"><div class="lbl">'+I.clock+'Темп</div><div class="val">'+fmtInt(rm)+'<span style="font-size:11px;color:var(--dim)"> ш/мин</span></div></div></div>'}
+ return'<div class="p-head"><span class="p-ico">'+(isCal?I.foot:I.zap)+'</span><div><h3>'+(isCal?'Идёт калибровка':'Идёт прогулка')+'</h3><p>'+(isCal?'Датчик считает параллельно.':'Обе цифры растут одновременно.')+'</p></div></div>'+body+
+ '<button class="btn btn-stop btn-xl" data-action="finish">'+I.flag+'Финиш</button><p class="p-note">Пауза — жёлтая кнопка в центре табло. '+kbd+'</p>'}
+function tplPaused(){const isCal=S.phase==='cal';let body;
+ if(!isCal){const e=elapsed(),st=Math.floor(e*S.rateSnap),d=st*D.set.stride/100;
+  body='<div class="m-duo"><div class="metric duo-m" id="mSteps"><div class="lbl">'+I.clock+'Шаги · по таймеру</div><div class="val" id="liveSteps">'+fmtInt(st)+'</div><div class="acc-note">заморожено</div></div>'+accBox(false)+'</div>'+
+  '<div class="m-small-row"><div class="metric"><div class="lbl">'+I.route+'Дистанция</div><div class="val" id="liveDist">'+fmtKm(d)+'</div></div><div class="metric"><div class="lbl">'+I.flame+'Калории</div><div class="val" id="liveKcal">≈ '+fmtInt(D.set.weight*d/1000*.52)+'</div></div><div class="metric"><div class="lbl">'+I.clock+'Темп</div><div class="val">'+fmtInt(S.rateSnap*60000)+'</div></div></div>'}
+ else body=accBox(true);
+ return'<div class="p-head"><span class="p-ico warn">'+I.pause+'</span><div><h3>Пауза</h3><p>Ни таймер, ни датчик не начисляют шаги.</p></div></div><div class="pause-note">'+I.warn+'Пауза не входит в итоговое время.</div>'+body+
+ '<button class="btn btn-stop btn-xl" data-action="finish">'+I.flag+'Финиш</button><p class="p-note">Продолжить — зелёная кнопка в табло. '+kbd+'</p><button class="btn-text" data-action="discard">Сбросить без сохранения</button>'}
+function tplCalInput(){const hint=S.calAcc!=null?'<div class="acc-hint">'+I.wave+'<span>Датчик насчитал <b>'+fmtInt(S.calAcc)+'</b> '+plural(S.calAcc,'шаг','шага','шагов')+'.</span><button class="perm-btn" data-action="cal-use-acc">Подставить</button></div>':'';
+ return'<div class="p-head"><span class="p-ico ok">'+I.check+'</span><div><h3>Замер завершён</h3><p>Сколько шагов вы насчитали?</p></div></div>'+
+ '<span class="recap">'+I.clock+'Время: '+fmtClockMs(S.calElapsed)+'</span><label class="cal-label" for="calSteps">Число шагов</label>'+
+ '<div class="cal-input-row"><button class="stepper-btn" data-cstep="-10">−</button><input id="calSteps" type="number" inputmode="numeric" min="1" max="99999" placeholder="0"><button class="stepper-btn" data-cstep="10">+</button>'+
+ '<div class="chip-row"><button class="chip-btn" data-chip="50">50</button><button class="chip-btn" data-chip="100">100</button><button class="chip-btn" data-chip="150">150</button><button class="chip-btn" data-chip="200">200</button></div></div>'+hint+
+ '<div class="cal-prev" id="calPrev">Введите число от 1 до 99 999</div><div class="cal-err" id="calErr"></div>'+
+ '<div class="btn-row"><button class="btn btn-primary" data-action="cal-save">'+I.check+'Сохранить темп</button><button class="btn btn-ghost" data-action="cal-cancel">Отмена</button></div>'}
+function tplCalDone(){const c=Math.round(cadence()),n=D.cals.length;
+ return'<div class="p-head"><span class="p-ico ok">'+I.zap+'</span><div><h3>Темп сохранён!</h3><p>Приложение знает вашу скорость.</p></div></div>'+
+ '<div class="tempo-big-row"><span class="tempo-big">'+fmtInt(c)+'</span><span class="tempo-unit">шагов / мин</span></div><p class="p-note">Среднее по '+n+' '+plural(n,'замеру','замерам','замерам')+'.</p>'+
+ '<div class="btn-row"><button class="btn btn-primary" data-action="goto-walk">'+I.play+'Перейти к прогулке</button><button class="btn btn-ghost" data-action="cal-again">Ещё замер</button></div>'}
+function deltaInfo(steps,acc){if(acc==null)return{cls:'off',txt:'датчик не работал',pct:null};
+ const d=Math.abs(steps-acc),pct=steps>0?d/steps*100:0;
+ return{cls:pct<=10?'ok':pct<=25?'mid':'bad',txt:'расхождение: '+fmtInt(d)+' '+plural(d,'шаг','шага','шагов')+' · '+pct.toLocaleString('ru-RU',{maximumFractionDigits:1})+'%',pct}}
+function tplWalkDone(){const r=S.lastResult,di=deltaInfo(r.steps,r.stepsAcc),hasAcc=r.stepsAcc!=null;
+ const canCal=hasAcc&&r.stepsAcc>=10&&r.ms>=15000;
+ return'<div class="p-head"><span class="p-ico ok">'+I.flag+'</span><div><h3>Итог прогулки</h3><p>Два независимых счёта за <b style="color:var(--text);font-family:var(--mono)">'+fmtClockMs(r.ms)+'</b>.</p></div></div>'+
+ '<div class="duo"><div class="duo-cell"><div class="duo-cap">'+I.clock+'По таймеру</div><div class="duo-num" id="resSteps">0</div><div class="duo-sub">темп '+fmtInt(r.rateMin)+' ш/мин</div></div>'+
+ '<div class="duo-cell acc"><div class="duo-cap">'+I.wave+'По датчику</div><div class="duo-num" id="resAcc">'+(hasAcc?'0':'—')+'</div><div class="duo-sub">акселерометр</div></div></div>'+
+ '<span class="delta-chip '+di.cls+'">'+I.delta+di.txt+'</span>'+
+ (di.pct!=null&&di.pct>25?'<p class="p-note warn">Датчик считал хуже: проверьте график сигнала в параметрах, попробуйте другую чувствительность или уточните темп по датчику ниже.</p>':'')+
+ (canCal?'<button class="btn btn-cy" data-action="cal-from-acc">'+I.wave+'Уточнить темп по датчику ('+fmtInt(r.stepsAcc)+' шагов)</button>':'')+
+ '<div class="m-small-row"><div class="metric"><div class="lbl">'+I.route+'Дистанция</div><div class="val">'+fmtKm(r.distM)+'</div></div><div class="metric"><div class="lbl">'+I.flame+'Калории</div><div class="val">≈ '+fmtInt(r.kcal)+'</div></div><div class="metric"><div class="lbl">'+I.clock+'Ср. скорость</div><div class="val">'+(r.ms>0?(r.distM/1000/(r.ms/36e5)).toLocaleString('ru-RU',{maximumFractionDigits:1}):'0')+'<span style="font-size:11px;color:var(--dim)"> км/ч</span></div></div></div>'+
+ (r.hit?'<span class="goal-chip">'+I.target+'Цель '+fmtInt(r.goal)+' выполнена!</span>':'')+
+ '<span class="saved-chip">'+I.check+'Сохранено · обе цифры</span>'+
+ '<div class="btn-row"><button class="btn btn-primary" data-action="new-walk">'+I.play+'Новая прогулка</button><button class="btn btn-ghost" data-action="copy-result">'+I.copy+'Скопировать</button></div>'}
+function renderPanel(){
+ let html;
+ if(S.st==='idle')html=S.phase==='cal'?tplCalIdle():(cadence()>0?tplWalkIdle():tplWalkLocked());
+ else if(S.st==='run')html=tplRunning();
+ else if(S.st==='pause')html=tplPaused();
+ else if(S.st==='calInput')html=tplCalInput();
+ else if(S.st==='calDone')html=tplCalDone();
+ else html=tplWalkDone();
+ panel.innerHTML=html;refreshLiveRefs();renderAccUI(true);
+ const ad=$('accDiag');if(ad)ad.innerHTML=diagText();
+ if(S.st==='calInput')requestAnimationFrame(()=>{const i=$('calSteps');if(i)i.focus()});
+ if(S.st==='walkDone'&&S.lastResult){const e1=$('resSteps');if(e1)animateCount(e1,S.lastResult.steps);const e2=$('resAcc');if(e2&&S.lastResult.stepsAcc!=null)animateCount(e2,S.lastResult.stepsAcc);
+  goalArc.style.strokeDashoffset=C2*(1-Math.min(1,S.lastResult.steps/S.lastResult.goal));goalArc.classList.toggle('complete',S.lastResult.steps>=S.lastResult.goal)}
+ if(S.st==='run'||S.st==='pause'){lastLiveSteps=-1;lastAccSteps=-1}
+}
+/* ---------- рендер ---------- */
+function renderTabs(){$('tabCal').classList.toggle('active',S.phase==='cal');$('tabWalk').classList.toggle('active',S.phase==='walk');
+ $('walkLock').style.display=cadence()>0?'none':'';$('tabsBox').classList.toggle('busy',busy())}
+function renderHint(){const m={'cal-idle':'<b>Шаг 1 из 2.</b> Узнаем ваш темп.','cal-run':'Идите и считайте шаги.','cal-pause':'Пауза.','cal-calInput':'Введите число шагов.','cal-calDone':'Можно к прогулке.',
+ 'walk-idle':cadence()>0?'<b>Шаг 2 из 2.</b> Идите — оба счёта параллельно.':'Прогулка откроется после калибровки.',
+ 'walk-run':'Два счёта параллельно. Пауза — в табло.','walk-pause':'Пауза.','walk-walkDone':'Итог с двумя цифрами сохранён.'};
+ $('phaseHint').innerHTML=m[S.phase+'-'+S.st]||''}
+function renderDial(){dialWrap.classList.toggle('is-cal',S.phase==='cal');dialWrap.classList.toggle('is-run',S.st==='run');dialWrap.classList.toggle('paused',S.st==='pause');
+ const btn=$('dialBtn'),locked=S.phase==='walk'&&cadence()<=0&&S.st==='idle';
+ if(['idle','run','pause'].includes(S.st)){btn.style.display='';
+  if(locked){btn.className='dial-btn lock';btn.innerHTML=I.lock+'<span>Темп</span>'}
+  else if(S.st==='run'){btn.className='dial-btn stop';btn.innerHTML=I.pause+'<span>Пауза</span>'}
+  else if(S.st==='pause'){btn.className='dial-btn go';btn.innerHTML=I.play+'<span>Дальше</span>'}
+  else{btn.className='dial-btn go';btn.innerHTML=I.play+'<span>Старт</span>'}}
+ else btn.style.display='none';
+ $('dialLabel').textContent={idle:S.phase==='cal'?'Калибровка':'Прогулка',run:S.phase==='cal'?'Идёт замер':'Идёт прогулка',pause:'Пауза',calInput:'Замер завершён',calDone:'Темп сохранён',walkDone:'Итог'}[S.st];
+ $('dialSub').textContent={idle:'нажмите «Старт»',run:S.phase==='cal'?'считайте шаги':'темп '+fmtInt(S.rateSnap*60000)+' ш/мин',pause:'таймер остановлен',calInput:fmtClockMs(S.calElapsed),calDone:fmtInt(cadence())+' ш/мин',walkDone:S.lastResult?'за '+fmtClockMs(S.lastResult.ms):''}[S.st];
+ if(S.st!=='run')$('timeTenth').textContent='.0';
+ $('statusDot').className='dot'+(S.st==='run'?' run':S.st==='pause'?' pause':(S.st==='calDone'||S.st==='walkDone')?' done':'')}
+function renderTrail(){const c=cadence()||110,si=60/c,st=$('stageCard');st.style.setProperty('--stepInt',si.toFixed(3)+'s');st.style.setProperty('--trailDur',(si*12).toFixed(3)+'s');st.classList.toggle('run',S.st==='run')}
+function renderTempo(){const n=D.cals.length,has=n>0;$('tempoFilled').hidden=!has;$('tempoEmpty').hidden=has;$('tempoBadge').hidden=!has;if(!has)return;
+ const c=cadence();$('tempoBadge').textContent=n+' '+plural(n,'замер','замера','замеров');$('tempoValue').textContent=fmtInt(c);
+ $('tempoPerSec').textContent='≈ '+(c/60).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' шага/с';
+ $('runsList').innerHTML=[...D.cals].sort((a,b)=>b.ts-a.ts).map(r=>'<div class="run-item"><div class="run-main"><div class="run-title">'+fmtInt(r.steps)+' шагов за '+fmtClockMs(r.ms)+'</div><div class="run-sub">'+relDate(r.ts)+(r.fromAcc?' · по датчику':'')+'</div></div><span class="rate-chip">'+fmtInt(r.steps/(r.ms/60000))+'/мин</span><button class="icon-btn" data-del-run="'+r.id+'">'+I.trash+'</button></div>').join('')}
+/* история: поиск / сортировка / фильтр */
+const H={q:'',sort:'date-desc',filter:'all'};
+function histFiltered(){
+ let arr=[...D.walks];
+ if(H.filter==='mine')arr=arr.filter(w=>!w.demo);
+ if(H.filter==='demo')arr=arr.filter(w=>w.demo);
+ if(H.q){const q=H.q.toLowerCase();arr=arr.filter(w=>(fmtInt(w.steps)+' '+relDate(w.ts)+' '+fmtClockMs(w.ms)+' '+fmtKm(w.distM)+(w.stepsAcc!=null?' '+w.stepsAcc:'')).toLowerCase().includes(q))}
+ const cmp={'date-desc':(a,b)=>b.ts-a.ts,'date-asc':(a,b)=>a.ts-b.ts,'steps-desc':(a,b)=>b.steps-a.steps,'dur-desc':(a,b)=>b.ms-a.ms}[H.sort];
+ return arr.sort(cmp)}
+function renderHistory(){
+ const now=new Date(),dayKey=t=>{const d=new Date(t);return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate()};
+ const tk=dayKey(now);let today=0,totalM=0;for(const w of D.walks){if(dayKey(w.ts)===tk)today+=w.steps;totalM+=w.distM}
+ $('todaySteps').textContent=fmtInt(today);
+ $('histTotals').innerHTML=D.walks.length+' '+plural(D.walks.length,'прогулка','прогулки','прогулок')+' · '+fmtKm(totalM)+'<br>за всё время';
+ const days=[];for(let i=6;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);days.push({key:dayKey(d),wd:WD[d.getDay()],label:d.getDate()+' '+MONTHS[d.getMonth()],real:0,demo:0,today:i===0})}
+ for(const w of D.walks){const s=days.find(x=>x.key===dayKey(w.ts));if(s)s[w.demo?'demo':'real']+=w.steps}
+ const max=Math.max(1,...days.map(d=>d.real+d.demo)),anyDemo=D.walks.some(w=>w.demo);
+ $('chartLegend').hidden=!anyDemo;
+ $('chart').innerHTML=days.map(d=>{const v=d.real+d.demo,h=v>0?Math.max(7,Math.round(70*v/max)):4;
+  const cls=d.today&&v>0?'today':(v>0&&d.real===0?'demo':'');
+  const cv=v>=1000?(v/1000).toLocaleString('ru-RU',{maximumFractionDigits:1})+'к':(v>0?v:'');
+  return'<div class="bar-col" title="'+d.label+': '+fmtInt(v)+'"><span class="bar-val">'+cv+'</span><div class="bar-fill '+cls+'" style="height:'+h+'px"></div><span class="bar-day'+(d.today?' today':'')+'">'+(d.today?'сег':d.wd)+'</span></div>'}).join('');
+ $('demoBtn').hidden=!anyDemo;
+ const arr=histFiltered();
+ $('histEmpty').hidden=arr.length>0;
+ $('histList').innerHTML=arr.map(w=>'<div class="hist-item" data-open-walk="'+w.id+'" role="button" tabindex="0"><span class="hist-ico'+(w.demo?' demo':'')+'">'+I.foot+'</span><div class="hist-main"><div class="hist-title">'+fmtInt(w.steps)+' шагов'+(w.stepsAcc!=null?' <span class="acc-n">· датчик '+fmtInt(w.stepsAcc)+'</span>':'')+'</div><div class="hist-sub">'+relDate(w.ts)+' · '+fmtClockMs(w.ms)+' · '+fmtKm(w.distM)+'</div></div>'+(w.demo?'<span class="demo-chip">пример</span>':'')+'<button class="icon-btn" data-del-walk="'+w.id+'" aria-label="Удалить">'+I.trash+'</button></div>').join('')}
+function renderSettings(){const sr=$('strideRange'),wr=$('weightRange'),mr=$('minIntRange');
+ sr.value=D.set.stride;wr.value=D.set.weight;mr.value=D.set.minInt;
+ $('strideOut').textContent=D.set.stride+' см';$('weightOut').textContent=D.set.weight+' кг';$('minIntOut').textContent=D.set.minInt+' мс';
+ sr.style.setProperty('--fill',((D.set.stride-40)/60*100)+'%');wr.style.setProperty('--fill',((D.set.weight-40)/110*100)+'%');mr.style.setProperty('--fill',((D.set.minInt-240)/220*100)+'%');
+ $('goalOut').textContent=fmtInt(D.set.goal);$('goalMinus').disabled=D.set.goal<=500;$('goalPlus').disabled=D.set.goal>=50000;
+ $('wakeToggle').checked=D.set.wake;
+ document.querySelectorAll('#sensSeg button').forEach(b=>b.classList.toggle('on',b.dataset.sens===D.set.sens));
+ $('testBtn').textContent=ACC.testMode?'Остановить тест':'Проверить датчик';
+ $('testCount').hidden=!ACC.testMode;
+ renderWakeNote()}
+function renderSound(){const on=D.set.sound;$('soundBtn').setAttribute('aria-pressed',on);$('soundIco').innerHTML=on?I.sndOn:I.sndOff;$('soundLbl').textContent=on?'Звук вкл':'Звук выкл'}
+function renderAll(){renderTabs();renderHint();renderDial();renderPanel();renderTrail();renderTempo();renderHistory();renderSettings();renderSound()}
+/* ---------- переходы ---------- */
+function toIdle(){S.st='idle';S.acc=0;S.startEpoch=0;releaseWake();saveSession();renderAll()}
+function stopTest(){if(ACC.testMode){ACC.testMode=false;clearTimeout(ACC.testT);renderSettings();renderAccUI(true)}}
+function actStart(){if(S.st!=='idle')return;
+ if(S.phase==='walk'){if(cadence()<=0){toast('Сначала измерьте темп',{type:'warn'});SND.err();return}S.rateSnap=cadence()/60000}else S.rateSnap=0;
+ stopTest();
+ ACC.steps=0;ACC.above=false;ACC.sm=0;ACC.grav=null;ACC.lastStep=0;ACC.buf.length=0;
+ ensureMotion();
+ S.acc=0;S.startEpoch=Date.now();S.st='run';S.goalHit=false;S.lastMilestone=0;S.calAcc=null;
+ SND.start();acquireWake();saveSession();renderAll();announce('Таймер запущен')}
+function actPause(){if(S.st!=='run')return;S.acc=elapsed();S.st='pause';SND.pause();releaseWake();saveSession();renderAll()}
+function actResume(){if(S.st!=='pause')return;S.startEpoch=Date.now();S.st='run';ACC.above=false;SND.start();acquireWake();saveSession();renderAll()}
+function actFinish(){if(S.st!=='run'&&S.st!=='pause')return;const e=elapsed();S.acc=e;releaseWake();const accN=accCount();
+ if(S.phase==='cal'){if(e<5000){SND.err();toast('Замер короче 5 секунд',{type:'warn'});toIdle();return}
+  S.calElapsed=e;S.calAcc=accN;S.st='calInput';SND.finish();saveSession();renderAll()}
+ else{if(e<3000){SND.err();toast('Слишком короткая прогулка',{type:'warn'});toIdle();return}
+  const steps=Math.round(e*S.rateSnap),distM=steps*D.set.stride/100,kcal=Math.round(D.set.weight*distM/1000*.52);
+  const entry={id:uid(),ts:Date.now(),ms:e,steps,stepsAcc:accN,distM,kcal,demo:false};
+  D.walks.push(entry);persist();
+  S.lastResult={...entry,rateMin:Math.round(S.rateSnap*60000),goal:D.set.goal,hit:steps>=D.set.goal};
+  S.st='walkDone';SND.finish();if(S.lastResult.hit)burst(18);saveSession();renderAll();
+  announce('Итог: '+fmtInt(steps)+' по таймеру'+(accN!=null?', '+fmtInt(accN)+' по датчику':''));
+  toast('Сохранено: '+fmtInt(steps)+' по таймеру'+(accN!=null?' · '+fmtInt(accN)+' по датчику':''),{type:'success',action:{label:'Отменить',fn(){const i=D.walks.findIndex(w=>w.id===entry.id);if(i>-1){D.walks.splice(i,1);persist();renderHistory()}}}})}}
+function actDiscard(){if(S.st!=='pause'&&S.st!=='run')return;SND.pause();toast('Сессия сброшена',{type:'info'});toIdle()}
+function calPreview(){const i=$('calSteps'),p=$('calPrev');if(!i||!p)return;const v=Number(i.value);
+ if(!Number.isInteger(v)||v<1||v>99999){p.textContent='Введите число от 1 до 99 999';p.classList.remove('warn');return}
+ const pm=v/(S.calElapsed/60000);let t='≈ '+fmtInt(pm)+' шагов/мин · '+(pm/60).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' шага/с';
+ const odd=pm<30||pm>240;if(odd)t+=' — необычный темп';p.textContent=t;p.classList.toggle('warn',odd)}
+function actCalSave(){if(S.st!=='calInput')return;const i=$('calSteps'),er=$('calErr'),v=Number(i&&i.value);
+ if(!Number.isInteger(v)||v<1||v>99999){if(er)er.textContent='Нужно целое число от 1 до 99 999.';if(i){i.classList.remove('shake');void i.offsetWidth;i.classList.add('shake');i.focus()}SND.err();return}
+ D.cals.push({id:uid(),ts:Date.now(),ms:S.calElapsed,steps:v});if(D.cals.length>12)D.cals.shift();persist();
+ S.st='calDone';S.acc=0;SND.save();burst(12);pulse('pulse',700);saveSession();renderAll();toast('Темп: '+fmtInt(cadence())+' шагов/мин',{type:'success'})}
+function actCalFromAcc(){const r=S.lastResult;if(!r||r.stepsAcc==null||r.stepsAcc<10||r.ms<15000)return;
+ D.cals.push({id:uid(),ts:Date.now(),ms:r.ms,steps:r.stepsAcc,fromAcc:true});if(D.cals.length>12)D.cals.shift();persist();
+ SND.save();renderTempo();renderTabs();renderTrail();toast('Темп уточнён по датчику: '+fmtInt(cadence())+' шагов/мин',{type:'success'});
+ const b=document.querySelector('[data-action="cal-from-acc"]');if(b){b.disabled=true;b.innerHTML=I.check+'Темп уточнён'}}
+function actCopy(){const r=S.lastResult;if(!r)return;
+ const t='Шагомер · итог\nПо таймеру: '+fmtInt(r.steps)+'\nПо датчику: '+(r.stepsAcc!=null?fmtInt(r.stepsAcc):'—')+'\nВремя: '+fmtClockMs(r.ms)+'\nДистанция: '+fmtKm(r.distM)+'\nКалории: ≈ '+fmtInt(r.kcal);
+ const ok=()=>toast('Скопировано',{type:'success'}),no=()=>toast('Не удалось скопировать',{type:'warn'});
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok).catch(()=>fb(t)?ok():no());else fb(t)?ok():no()}
+function fb(t){try{const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();const r=document.execCommand('copy');a.remove();return r}catch(e){return false}}
+function switchPhase(p){if(S.phase===p&&S.st==='idle')return;
+ if(busy()){toast('Сначала завершите сессию',{type:'warn'});SND.err();const tb=$('tabsBox');tb.classList.remove('shake');void tb.offsetWidth;tb.classList.add('shake');return}
+ SND.click();S.phase=p;toIdle()}
+function actDial(){if(S.phase==='walk'&&cadence()<=0&&S.st==='idle'){switchPhase('cal');return}
+ if(S.st==='idle')actStart();else if(S.st==='run')actPause();else if(S.st==='pause')actResume()}
+function actTest(){
+ if(ACC.testMode){stopTest();toast('Тест завершён: '+fmtInt(ACC.testSteps)+' '+plural(ACC.testSteps,'шаг','шага','шагов'),{type:'info'});return}
+ if(busy()){toast('Тест доступен вне активной сессии',{type:'warn'});return}
+ ensureMotion();
+ ACC.testMode=true;ACC.testSteps=0;ACC.above=false;ACC.sm=0;ACC.grav=null;ACC.lastStep=0;
+ $('testCount').textContent='Тест: 0 шагов';
+ ACC.testT=setTimeout(()=>{if(ACC.testMode){stopTest();toast('Тест завершён: '+fmtInt(ACC.testSteps)+' шагов',{type:'info'})}},30000);
+ renderSettings();renderAccUI(true);SND.click();
+ toast('Идите с телефоном 10–20 секунд — смотрите график и счёт',{type:'info'})}
+/* ---------- drawer ---------- */
+let drawerId=null;
+function openDrawer(id){const w=D.walks.find(x=>x.id===id);if(!w)return;drawerId=id;
+ $('dDate').textContent=relDate(w.ts)+(w.demo?' · пример':'');
+ $('dSteps').value=w.steps;$('dAcc').value=w.stepsAcc!=null?w.stepsAcc:'';
+ $('dDur').textContent=fmtClockMs(w.ms);$('dDist').textContent=fmtKm(w.distM);$('dKcal').textContent='≈ '+fmtInt(w.kcal);
+ const di=deltaInfo(w.steps,w.stepsAcc);$('dDelta').textContent=di.pct!=null?di.pct.toLocaleString('ru-RU',{maximumFractionDigits:1})+'%':'—';
+ $('drawer').classList.add('open');$('drawerScrim').classList.add('open');
+ setTimeout(()=>$('dSteps').focus(),320)}
+function closeDrawer(){drawerId=null;$('drawer').classList.remove('open');$('drawerScrim').classList.remove('open')}
+function saveDrawer(){const w=D.walks.find(x=>x.id===drawerId);if(!w)return;
+ const s=clamp(Math.round(Number($('dSteps').value)||0),0,999999);
+ const aRaw=$('dAcc').value;const a=aRaw===''?null:clamp(Math.round(Number(aRaw)||0),0,999999);
+ w.steps=s;w.stepsAcc=a;w.distM=s*D.set.stride/100;w.kcal=Math.round(D.set.weight*w.distM/1000*.52);
+ persist();renderHistory();closeDrawer();SND.save();toast('Запись обновлена',{type:'success'})}
+function delDrawer(){const i=D.walks.findIndex(x=>x.id===drawerId);if(i<0)return;const[item]=D.walks.splice(i,1);persist();renderHistory();closeDrawer();
+ toast('Запись удалена',{type:'info',action:{label:'Вернуть',fn(){D.walks.splice(Math.min(i,D.walks.length),0,item);persist();renderHistory()}}})}
+/* ---------- события ---------- */
+document.addEventListener('click',e=>{
+ const b=e.target.closest('[data-action],[data-phase],[data-del-walk],[data-del-run],[data-chip],[data-cstep],[data-goal],[data-sens],[data-hfilter],[data-open-walk]');
+ if(!b||b.disabled)return;
+ if(b.dataset.delWalk){e.stopPropagation();const i=D.walks.findIndex(w=>w.id===b.dataset.delWalk);
+  if(i>-1){const[it]=D.walks.splice(i,1);persist();renderHistory();SND.click();toast('Запись удалена',{type:'info',action:{label:'Вернуть',fn(){D.walks.splice(Math.min(i,D.walks.length),0,it);persist();renderHistory()}}})}return}
+ if(b.dataset.openWalk){openDrawer(b.dataset.openWalk);return}
+ if(b.dataset.phase){switchPhase(b.dataset.phase);return}
+ if(b.dataset.hfilter){H.filter=b.dataset.hfilter;document.querySelectorAll('#histFilter button').forEach(x=>x.classList.toggle('on',x===b));renderHistory();SND.click();return}
+ if(b.dataset.sens){D.set.sens=b.dataset.sens;persist();renderSettings();SND.click();toast('Чувствительность: '+b.textContent.toLowerCase()+' · порог adapтивный',{type:'info',dur:2500});return}
+ if(b.dataset.goal){D.set.goal=clamp(D.set.goal+Number(b.dataset.goal),500,50000);persist();renderSettings();SND.click();lastLiveSteps=-1;if(S.st==='idle'&&S.phase==='walk')renderPanel();return}
+ if(b.dataset.chip){const i=$('calSteps');if(i){i.value=b.dataset.chip;calPreview();i.focus();SND.click()}return}
+ if(b.dataset.cstep){const i=$('calSteps');if(i){i.value=clamp((Number(i.value)||0)+Number(b.dataset.cstep),0,99999);calPreview();i.focus();SND.click()}return}
+ if(b.dataset.delRun){const i=D.cals.findIndex(c=>c.id===b.dataset.delRun);
+  if(i>-1){const[it]=D.cals.splice(i,1);persist();renderTempo();renderTabs();renderTrail();SND.click();if(S.st==='idle'){renderPanel();renderHint();renderDial()}
+   toast('Замер удалён',{type:'info',action:{label:'Вернуть',fn(){D.cals.splice(Math.min(i,D.cals.length),0,it);persist();renderTempo();renderTabs();renderTrail();if(S.st==='idle'){renderPanel();renderHint();renderDial()}}}})}return}
+ switch(b.dataset.action){
+  case'dial':actDial();break;case'start':actStart();break;case'finish':actFinish();break;case'discard':actDiscard();break;
+  case'acc-perm':ensureMotion();break;case'acc-test':actTest();break;
+  case'cal-use-acc':{const i=$('calSteps');if(i&&S.calAcc!=null){i.value=S.calAcc;calPreview();i.focus();SND.click()}break}
+  case'cal-save':actCalSave();break;case'cal-cancel':SND.click();toIdle();break;
+  case'goto-walk':SND.click();S.phase='walk';toIdle();break;case'goto-cal':SND.click();S.phase='cal';toIdle();break;
+  case'cal-again':SND.click();S.phase='cal';toIdle();break;case'new-walk':SND.click();toIdle();break;
+  case'copy-result':actCopy();break;case'cal-from-acc':actCalFromAcc();break;
+  case'd-save':saveDrawer();break;case'd-del':delDrawer();break;case'd-close':closeDrawer();break}});
+document.addEventListener('input',e=>{if(e.target.id==='calSteps')calPreview();
+ if(e.target.id==='histSearch'){H.q=e.target.value.trim();renderHistory()}});
+document.addEventListener('keydown',e=>{
+ const t=e.target,typing=t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable);
+ if(e.key==='Escape'&&drawerId){closeDrawer();return}
+ if(e.key==='Enter'&&t&&t.id==='calSteps'){e.preventDefault();actCalSave();return}
+ if((e.key==='Enter'||e.key===' ')&&t&&t.dataset&&t.dataset.openWalk){e.preventDefault();openDrawer(t.dataset.openWalk);return}
+ if(e.code==='Space'&&!typing&&!e.repeat&&!drawerId){
+  if(S.st==='idle'){e.preventDefault();actStart()}else if(S.st==='run'){e.preventDefault();actPause()}else if(S.st==='pause'){e.preventDefault();actResume()}}});
+$('histSort').addEventListener('change',e=>{H.sort=e.target.value;renderHistory()});
+$('strideRange').addEventListener('input',e=>{D.set.stride=Number(e.target.value);persist();renderSettings();lastLiveSteps=-1});
+$('weightRange').addEventListener('input',e=>{D.set.weight=Number(e.target.value);persist();renderSettings();lastLiveSteps=-1});
+$('minIntRange').addEventListener('input',e=>{D.set.minInt=Number(e.target.value);persist();renderSettings()});
+$('wakeToggle').addEventListener('change',e=>{D.set.wake=e.target.checked;persist();if(D.set.wake)acquireWake();else releaseWake();renderWakeNote()});
+$('soundBtn').addEventListener('click',()=>{D.set.sound=!D.set.sound;persist();renderSound();if(D.set.sound)SND.click()});
+$('demoBtn').addEventListener('click',()=>{const rem=[];for(let i=D.walks.length-1;i>=0;i--)if(D.walks[i].demo)rem.unshift({item:D.walks[i],index:i});
+ D.walks=D.walks.filter(w=>!w.demo);persist();renderHistory();SND.click();
+ toast('Примеры удалены',{type:'info',action:{label:'Вернуть',fn(){for(const r of rem)D.walks.splice(Math.min(r.index,D.walks.length),0,r.item);persist();renderHistory()}}})});
+let resetArmed=false,resetT=0;
+$('resetBtn').addEventListener('click',()=>{const btn=$('resetBtn');
+ if(!resetArmed){resetArmed=true;btn.classList.add('armed');$('resetLbl').textContent='Точно удалить всё?';SND.err();
+  resetT=setTimeout(()=>{resetArmed=false;btn.classList.remove('armed');$('resetLbl').textContent='Сбросить все данные'},3500);return}
+ clearTimeout(resetT);resetArmed=false;btn.classList.remove('armed');$('resetLbl').textContent='Сбросить все данные';
+ removeKey(DKEY);removeKey(SKEY);releaseWake();stopTest();
+ D={cals:[],walks:[],set:{...DEFAULT_SET},seeded:true};
+ Object.assign(S,{phase:'cal',st:'idle',acc:0,startEpoch:0,rateSnap:0,calElapsed:0,calAcc:null,lastResult:null,goalHit:false,lastMilestone:0});
+ ACC.steps=0;ACC.above=false;ACC.sm=0;ACC.grav=null;ACC.buf.length=0;
+ persist();renderAll();toast('Все данные удалены',{type:'success'})});
+document.addEventListener('visibilitychange',()=>{saveSession();if(document.visibilityState==='visible'&&S.st==='run')acquireWake()});
+window.addEventListener('beforeunload',saveSession);
+/* ---------- восстановление ---------- */
+(function(){const ss=loadJSON(SKEY)||loadJSON('shagomer.session.v1');
+ if(!ss||!['run','pause','calInput'].includes(ss.st))return;
+ if(ss.phase==='walk'&&ss.st!=='calInput'&&!(ss.rateSnap>0)){removeKey(SKEY);return}
+ S.phase=ss.phase==='walk'?'walk':'cal';S.st=ss.st;S.startEpoch=ss.startEpoch||0;S.acc=ss.acc||0;S.rateSnap=ss.rateSnap||0;
+ S.calElapsed=ss.calElapsed||0;S.calAcc=ss.calAcc!=null?ss.calAcc:null;S.goalHit=!!ss.goalHit;S.lastMilestone=ss.lastMilestone||0;ACC.steps=ss.accSteps||0;
+ if(!ACC.needPrompt)attachMotion();
+ if(S.st==='run')acquireWake();
+ setTimeout(()=>toast('Сессия восстановлена',{type:'info'}),600)})();
+/* ---------- главный цикл ---------- */
+let lastSecTxt='',lastTenth=-1,lastLiveSteps=-1,lastAccSteps=-1,lastChip='',lastFrac=-1,lastDiag=0,lastHzT=Date.now();
+const timeMain=$('timeMain'),timeTenth=$('timeTenth'),statusText=$('statusText');
+function chipText(e){if(S.st==='run')return S.phase==='cal'?'Калибровка · '+fmtClockMs(e):'Прогулка · '+fmtInt(Math.floor(e*S.rateSnap))+' ш.';
+ return{idle:'Готов',pause:'Пауза',calInput:'Введите шаги',calDone:'Темп сохранён',walkDone:'Итог готов'}[S.st]||'Готов'}
+function loop(){
+ const running=S.st==='run',e=elapsed();
+ const txt=fmtClock(Math.floor(e/1000));
+ if(txt!==lastSecTxt){timeMain.textContent=txt;timeMain.classList.toggle('long',txt.length>5);lastSecTxt=txt}
+ const tenth=Math.floor(e/100)%10;
+ if(running&&tenth!==lastTenth){timeTenth.textContent='.'+tenth;lastTenth=tenth}
+ const frac=(e%60000)/60000;
+ if(Math.abs(frac-lastFrac)>0.0004){minArc.style.strokeDashoffset=(C1*(1-frac)).toFixed(1);dotG.setAttribute('transform','rotate('+(frac*360).toFixed(2)+' 170 170)');lastFrac=frac}
+ if(S.phase==='walk'&&(running||S.st==='pause')&&liveSteps){
+  const steps=Math.floor(e*S.rateSnap);
+  if(steps!==lastLiveSteps){liveSteps.textContent=fmtInt(steps);
+   const dist=steps*D.set.stride/100;if(liveDist)liveDist.textContent=fmtKm(dist);if(liveKcal)liveKcal.textContent='≈ '+fmtInt(D.set.weight*dist/1000*.52);
+   const gp=Math.min(1,steps/D.set.goal);goalArc.style.strokeDashoffset=(C2*(1-gp)).toFixed(1);goalArc.classList.toggle('complete',gp>=1);
+   if(running){let hit=false;while(steps>=S.lastMilestone+1000){S.lastMilestone+=1000;hit=true}
+    if(hit){floater('+1 000');pulse('pulse',550);SND.mile();saveSession()}
+    if(!S.goalHit&&steps>=D.set.goal){S.goalHit=true;burst(20);pulse('goal-flash',1300);SND.goal();toast('Цель: '+fmtInt(D.set.goal)+' шагов!',{type:'success'});saveSession()}}
+   lastLiveSteps=steps}}
+ if(accVal){const show=accUsable(),n=show?ACC.steps:-1;
+  if(n!==lastAccSteps){accVal.textContent=show?fmtInt(ACC.steps):'—';
+   if(running&&show&&ACC.steps>0&&lastAccSteps>=0){accVal.classList.remove('bump');void accVal.offsetWidth;accVal.classList.add('bump')}
+   lastAccSteps=n}}
+ const nowWall=Date.now();
+ if(nowWall-lastHzT>=1000){ACC.hz=Math.round(ACC.evCount*1000/(nowWall-lastHzT));ACC.evCount=0;lastHzT=nowWall;
+  const d1=$('accDiag'),d2=$('setDiag');const dt=diagText();if(d1)d1.innerHTML=dt;if(d2)d2.innerHTML=dt}
+ drawWave($('accWave'));drawWave($('setWave'));
+ renderAccUI(false);
+ const chip=chipText(e);if(chip!==lastChip){statusText.textContent=chip;lastChip=chip}
+ requestAnimationFrame(loop)}
+/* ---------- запуск ---------- */
+if(ACC.supported&&!ACC.needPrompt)attachMotion(); /* Android: без запроса, сразу живой мониторинг */
+renderAll();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
